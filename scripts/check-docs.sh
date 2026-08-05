@@ -8,12 +8,12 @@ say() { printf "  %-40s %s\n" "$1" "$2"; }
 
 EXPECTED="README 01-why 02-before-build 03-delivery 04-build-loop 05-depth 06-enforcement \
 07-repository 08-templates 09-host-and-pipeline 10-stack-wiring 11-measurement 12-runbook \
-13-troubleshooting 14-limits 15-reference 16-agent-run-delivery 17-artefacts 18-outcomes"
+13-troubleshooting 14-limits 15-reference 16-agent-run-delivery 17-artefacts 18-outcomes 19-first-run"
 
 # 1. every document present
 MISSING=""
 for d in $EXPECTED; do [ -f "docs/$d.md" ] || MISSING="$MISSING $d"; done
-[ -z "$MISSING" ] && say "all 19 documents present" "ok" || { say "all 19 documents present" "MISSING:$MISSING"; FAIL=1; }
+[ -z "$MISSING" ] && say "all 20 documents present" "ok" || { say "all 20 documents present" "MISSING:$MISSING"; FAIL=1; }
 
 # 2. no cross-link points at a file that does not exist
 DEAD=""

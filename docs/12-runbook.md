@@ -29,6 +29,11 @@ perimeter goes on before it has anything to assert, in order that the first thin
 | Week 4 | `review` required, if its numbers earned it | 30 findings, dismissal under 1 in 3 over a rolling 20 |
 | Week 5 | first client project, Standard depth | Setup ends with a page live in dev |
 
+Before day 0, read [the first run](19-first-run.md). It is the pre-mortem for everything below — how to
+choose a first project so the process is exercised rather than performed, and the two dozen things that
+will bite while you run it. Most of them look like success, which is why they are worth reading before
+anyone is under time pressure.
+
 ## Day 0 — the decisions no workflow can make for you
 
 **A remote, on the host you intend to keep.** The pilot's entire failure was downstream of not having one.

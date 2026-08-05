@@ -1,7 +1,7 @@
 # The devx AI SDLC
 
-How we build software with agents, and the checks that make it safe to. Fifteen short documents rather
-than one long one, because nobody reads a 72,000-word file.
+How we build software with agents, and the checks that make it safe to. Twenty short documents rather than
+one long one, because nobody reads a 92,000-word file.
 
 **Read this page first.** It is five minutes and it is enough to hold the shape in your head.
 
@@ -102,6 +102,7 @@ Handover, and [depth](05-depth.md) to decide what the project needs.
 | [16](16-agent-run-delivery.md) | Agent-run delivery: the target operating model | Deciding how the delivery team should work |
 | [17](17-artefacts.md) | The documents, and what happens to each | Unsure where information belongs, why a spec is written late, or why there is no learnings document |
 | [18](18-outcomes.md) | What this changes against AI with no process, and what it costs | Asking a team to adopt it, or telling a client what they get |
+| [19](19-first-run.md) | Choosing the first project, and what will go wrong | Before the first run, and before the demo |
 
 Research in progress — sources, adjudicated findings, open questions and experiments — lives in
 [`../research/`](../research/README.md). These documents are the conclusions; that folder is the
