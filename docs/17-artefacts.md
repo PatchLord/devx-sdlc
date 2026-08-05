@@ -10,29 +10,41 @@ The stages are in [before the build](02-before-build.md) and the per-ticket proc
 ## The chain
 
 ```
-  BRD ──▶ SOW ──▶ PRD ──▶ TDD ──▶ contracts ──▶ features ──▶ tickets ──▶ spec ──▶ code
-   │       │       │       │          │            │            │          │
-   │       │       │       │          │            │            │          └── written at development
-   │       │       │       │          │            │            │              time, never in advance
-   │       │       │       │          │            │            └── one branch, one PR, under 300 lines
-   │       │       │       │          │            └── a TDD section. big, meaningful, demo-able
-   │       │       │       │          └── shared surfaces, fixed before anything builds on them
-   │       │       │       └── every client question closed. LIVING.
-   │       │       └── what and why, for a phase
-   │       └── commercial frame, and the depth level
-   └── THEIRS, not ours. The business problem, in their words
+ (BRD) ──▶ SOW ──▶ PRD ──▶ TDD ──▶ contracts ──▶ features ──▶ tickets ──▶ spec ──▶ code
+   ┆        │       │       │          │            │            │          │
+   ┆        │       │       │          │            │            │          └── written at development
+   ┆        │       │       │          │            │            │              time, never in advance
+   ┆        │       │       │          │            │            └── one branch, one PR, under 300 lines
+   ┆        │       │       │          │            └── a TDD section. big, meaningful, demo-able
+   ┆        │       │       │          └── shared surfaces, fixed before anything builds on them
+   ┆        │       │       └── every client question closed. LIVING.
+   ┆        │       └── what and why, for a phase
+   ┆        └── commercial frame, and the depth level
+   └── OPTIONAL, and theirs not ours. Often it does not exist
 ```
 
-**The BRD is the client's document and it arrives imperfect.** It is not our artefact and we do not tidy it:
-it will be vague where they have not thought something through, it will contain a contradiction between two
-things they want, and it will usually ask for at least one thing that is a bad idea. Those three properties
-are the *input* to Solutioning, not defects to be corrected before work starts — the SOW's job is to surface
-them, and a BRD with no problems in it means somebody has already rewritten the client's thinking into ours.
+**The BRD is optional.** Plenty of engagements arrive as a conversation, a Slack thread, or a call with no
+document at all, and demanding one before we will engage is a good way to lose the work.
 
-Some engagements arrive with no BRD at all, only a conversation. Then the first thing Solutioning produces is
-a written statement of what we heard, sent back for the client to correct. Either way, **the SOW may not be
-the first written record of what they asked for** — if it is, there is nothing to check the SOW against, and
-every later argument about scope becomes an argument about memory.
+**And we cannot assume it comes from them.** Often the client has no document and no appetite for writing
+one, so *we* write it — from the call, the thread, whatever exists — and send it back. That is normal agency
+work and it is not a worse starting position.
+
+So the rule is not about authorship. **Who typed it does not matter; whether the client confirmed it in
+writing does.** A BRD we drafted and they never answered is our assumptions wearing their authority, which is
+the most expensive document in an engagement — every later scope argument gets settled by pointing at
+something they never agreed to.
+
+What is **not** optional is that *something the client has confirmed records what they asked for, before our
+SOW exists.* Their document, or ours confirmed by them. Either way the SOW must not be the first written
+account of their own requirements, because then there is nothing to check it against and every later argument
+about scope becomes an argument about memory.
+
+**When a BRD does arrive, it arrives imperfect, and we do not tidy it.** It will be vague where they have not
+thought something through, it will contain a contradiction between two things they want, and it will usually
+ask for at least one thing that is a bad idea. Those three properties are the *input* to Solutioning, not
+defects to correct before work starts. Surfacing them is what the SOW and the discovery meeting are for, and
+a BRD with no problems in it means somebody has already rewritten the client's thinking into ours.
 
 ## The rule that settles most arguments
 
@@ -48,7 +60,7 @@ A TDD describes the system. When it stops matching the system, it is wrong and g
 
 | Artefact | Owner | Drafted by | State | Notes |
 |---|---|---|---|---|
-| **BRD** | the client | the client | frozen, theirs | The business problem in their words. Arrives imperfect and stays that way |
+| **BRD** | the client confirms it, whoever wrote it | them, or us from a conversation | optional. Frozen once confirmed | Their written confirmation is the record, not our draft |
 | **SOW** | practitioner / OM, tech lead signs | people | frozen | Carries the depth level and what the client was told about which checks exist |
 | **PRD** | tech lead or CSM | people | frozen | Changes go through the CSM, because they change what the client accepts |
 | **TDD** | tech lead | agent drafts, developer interrogates | **living** | Its job is closing questions, not documentation |
