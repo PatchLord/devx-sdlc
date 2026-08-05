@@ -191,7 +191,35 @@ the central gate was fictional for the entire run. Say so if it happened.
 **The run was tidied before being shown.** The most valuable output is what got blocked. A demonstration in
 which nothing was blocked is a demonstration of a system that does not block.
 
-## Part 4 — what to say afterwards
+## Part 4 — if the first run is also a demonstration
+
+Showing it to an executive changes the design of the run, and two of the changes are non-obvious.
+
+**Run the ungoverned control FIRST, cold, before the process exists in that repository.** The most
+persuasive exhibit is the same feature built twice — same agent, same model, only the process removed — but
+the comparison is only honest if the control ran without knowing where the defects would be. Build the
+governed version first and you are writing the control already knowing the answers, which is the laundered
+evidence problem in a different costume.
+
+**Do not bet the demonstration on the ungoverned version being visibly bad.** It often is not. An
+ungoverned agent frequently produces good code, and if the room sees two acceptable branches the argument
+collapses — unless the claim was framed correctly to begin with:
+
+> The ungoverned version might be perfectly fine. **You have no way to know which one you got.**
+
+The governed run is what produces the evidence that answers *which*. Framed that way the exhibit holds even
+when both branches are near-identical, because what is on display is not better code — it is knowing. That
+framing also removes the temptation to rehearse, which is the failure named above.
+
+Two smaller consequences. **Walk the artefacts rather than coding live**: a live session is fragile and
+proves less than a real engagement's outputs. And **state the sample size yourself** before anyone asks —
+five tickets show the mechanisms work and show nothing about whether the process survives a quarter.
+
+The questions that follow are the part worth preparing, and they are in
+[outcomes](18-outcomes.md#the-questions-you-will-be-asked) — executive, developer, client and technical,
+with the honest answers, including the four places where the honest answer is that we do not know yet.
+
+## Part 5 — what to say afterwards
 
 Whatever happened, the honest framing is fixed in advance: **five tickets show that the mechanisms work. They
 do not show that the process survives a project.** That is [E2](../research/experiments.md), it takes a real

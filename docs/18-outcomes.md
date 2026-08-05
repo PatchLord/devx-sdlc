@@ -152,3 +152,134 @@ not know.
 **It makes quality a property of the process instead of a property of whoever happened to pick up the
 ticket** — and that is the only version of quality control that survives most of the code being written by
 an agent.
+
+## The questions you will be asked
+
+Written down because the case is won or lost here rather than in the presentation, and because an answer
+invented in the room is an answer nobody can hold us to later. Where we do not have an answer, the entry
+says so and names the open question — **a stated gap costs less than a confident guess that turns out
+wrong in front of a client.**
+
+### From an executive
+
+**"How much does this slow us down?"**
+Ticket one is slower, visibly. After that the front half does not *add* work, it *moves* work earlier —
+questions that used to surface mid-build surface before code exists, where they are cheap. What we cannot
+promise is a throughput gain: the typing got faster and the deciding did not, so expect the constraint to
+move to how fast questions get answered. That is still progress, because a visible constraint is fixable
+and "we are behind" is not.
+
+**"What does the AI itself cost per ticket?"**
+Unmeasured, and that is a hole rather than a defence — see C1 in
+[`research/open-questions.md`](../research/open-questions.md). Capture it from the first ticket of the
+first project; it cannot be reconstructed. Anyone quoting a figure before then is guessing.
+
+**"Can we charge for this?"**
+Not as a line item. What it gives Solutioning is something competitors mostly cannot say: not *we use AI*,
+which is table stakes, but *here is what we check, here is what we can prove, and here is what we
+deliberately do not claim.* The release checklist's third column — what this release does **not** verify —
+is the part clients remember, because nobody else volunteers it.
+
+**"If the models keep getting better, is this wasted work?"**
+The opposite. The law this is built on is about checking, not about model quality: a better model produces
+more plausible code faster, which raises the volume arriving at the one part of the sequence that did not
+speed up. Every capability improvement makes the checking layer more load-bearing, not less.
+
+**"Why not just trust our senior engineers?"**
+Because the failure is measured and it is not about competence. Anthropic found only **16%** of pull
+requests in their own engineering org getting substantive feedback under velocity pressure, and skim
+probability rises with diff size while agent diffs are large by default. A senior skimming 900 lines and a
+senior reviewing 900 lines are byte-identical on the host.
+
+**"What if a competitor ships faster without any of this?"**
+They will, until the first incident on a client's revenue. That is the honest answer and it is worth saying
+out loud rather than pretending the trade does not exist. What this buys is not speed; it is that we can
+tell a client what was verified.
+
+**"Does this survive us growing to twenty engineers?"**
+The gates and the depth tiers do, because they are per-repository and per-diff rather than per-person. Two
+things do not scale by themselves: the weekly hour needs a named owner or it stops happening, and reviewer
+attention is the binding constraint — which raises the question of who becomes able to review, and we have
+no mechanism for that. See R5.
+
+**"What stops this becoming bureaucracy?"**
+A real risk, and the two things holding it back are deliberate. Anything sitting at tier 3 for a month
+either becomes a check or gets deleted. And a gate that has never caught anything is supposed to die: the
+runbook's pruning decision exists so the standard can shrink. Every governance regime without a shrinking
+mechanism grows until it is routed around.
+
+### From a developer
+
+**"Do I have to write specifications now?"**
+The agent drafts it; your job is to interrogate it. Three sections cannot be agent-drafted, because writing
+them requires understanding the system: the open questions, the risks, and what we are deliberately not
+doing. If those three came from the agent, the review did not happen.
+
+**"Am I just going to be approving AI output all day?"**
+That is the failure mode this is designed against, which is why escalations route by class rather than all
+queueing to whoever holds the ticket. You answer ambiguity and novel territory. Commercial questions go to
+whoever owns the SOW, criteria changes to a code owner, taste to the tech lead, and a wrong gate to whoever
+owns the gate.
+
+**"What if a gate is wrong?"**
+Say so — that is class D, and it is the most under-reported class precisely because working around a check
+is easier than arguing with one. Gate removal has a defined path: evidence that it never caught anything, a
+named remover, and concurrence where it protects a live client surface.
+
+**"Will I stop learning if the agent writes everything?"**
+We do not have a good answer. `14-limits.md` cites the survey — 16% of senior engineers say juniors fully
+understand the code they submit, against 85% of juniors saying AI improves their understanding — and then
+provides no mechanism. Recorded as R5, open. Anyone claiming this is solved is selling something.
+
+**"Is this more meetings?"**
+No meetings are added. One hour a week, one named person, and the questions that used to become meetings
+get closed in the design document instead.
+
+### From a client
+
+**"Do you use AI on our code?"**
+Yes, and it is named in the SOW with written permission before any engagement starts. What we do **not**
+yet have written down is the harder half: what an agent may *read* and transmit, checked against your MSA
+and DPA, subprocessor restrictions, retention and residency. That is R1, it is open, and it needs an answer
+before the next engagement rather than during it.
+
+**"Is the code you deliver original? Our contract says it must be."**
+We cannot currently prove it. There is no licence-compatibility scan, no copyleft check, and no detection
+of verbatim third-party reproduction in generated code. R2, open, and it is the failure class that ends a
+relationship rather than costing a sprint. Do not answer this one confidently in a room.
+
+**"How do I know the work is actually finished?"**
+Every acceptance criterion names the artefact that proves it — a test, a screenshot, a query output, a run
+URL — and an empty cell fails the release. Alongside it you get what the release does *not* verify, which
+is the more useful document.
+
+**"What happens when something breaks?"**
+Rollback tested rather than assumed, with the time recorded. With one honest caveat: where we do not own
+the pipeline — a live theme, a client-controlled deploy — **merge is exposure**, and a rollback rehearsal
+has no environment to happen in. That is R4, and on those surfaces the answer today is weaker than it
+sounds.
+
+### From a technical evaluator
+
+**"What actually stops the agent bypassing this?"**
+Nothing in the repository does, and we do not pretend otherwise. Hooks are hints — `--no-verify` walks past
+them and an agent can edit the hook files. What holds is the set of checks the host refuses to merge
+without, plus one job that reads the host's real configuration back and fails when it stops matching what
+the repository claims. That check is the one that makes every other check's claim honest.
+
+**"Is 300 lines not arbitrary?"**
+It is judgement, and the documents say so. What is measured is the direction: over 1,000 lines, **84%** of
+pull requests draw findings, averaging 7.5 each. E5 exists to move the number to wherever our own evidence
+puts it.
+
+**"What if the tests and the code share the same misunderstanding?"**
+Nothing here catches that at low consequence, and no standard we have read does either. Proving a test
+*can* fail catches a missing proof, not a wrong one. Our partial answer — expected values computed by hand
+rather than by the model that wrote the code — is currently keyed to novelty, which nobody can measure,
+when the property that predicts damage is consequence. D11, open.
+
+**"How much of this is running versus written down?"**
+Ask this of us and of anyone else presenting a standard. Our answer: the gate logic is proven to reject and
+to discriminate by an offline harness that is itself mutation-tested, and the host half — a red check
+actually blocking a merge — was still unproven at the time of writing. Every row that says *written* rather
+than *proven* means exactly that.
