@@ -33,7 +33,9 @@ if [ -d "$STARTER" ]; then
   N=0; PROBLEM=""
   while IFS= read -r src; do
     rel=${src#"$STARTER"/}
-    case "$rel" in .git/*|*.gitkeep) continue ;; esac
+    # tasks/board.html is generated from tasks/board.md by scripts/board.mjs. Inlining a generated
+    # file would mean maintaining a copy of a derivative, which is the drift this whole design avoids.
+    case "$rel" in .git/*|*.gitkeep|tasks/board.html) continue ;; esac
     N=$((N+1))
     probe=$(awk 'length($0)>28' "$src" | sed -n '2p')
     [ -z "$probe" ] && probe=$(awk 'length($0)>16' "$src" | sed -n '1p')

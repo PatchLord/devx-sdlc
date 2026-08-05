@@ -1,8 +1,8 @@
 # The repository
 
-Everything the agent side of this process needs, as files: forty-five of them, plus three `.gitkeep`
-markers. This document gives you the twenty-two it owns in full, in the order you would create them, and
-tells you where the other twenty-three live.
+Everything the agent side of this process needs, as files: forty-seven of them, plus three `.gitkeep`
+markers and one generated view. This document gives you the twenty-three it owns in full, in the order you
+would create them, and tells you where the other twenty-four live.
 
 The reason to start from a template rather than a checklist is our own estimate: hand-built, this takes
 about a fortnight, the result depends on who did it, and the parts that get dropped under pressure are the
@@ -60,11 +60,15 @@ devx-starter/
 │   ├── README.md                 the schema, and why this is not a learnings doc
 │   ├── events/_template.md       one file per event, append-only
 │   └── weeks/                    what each weekly hour actually found
+├── tasks/
+│   ├── board.md                  THE TRACKER. every ticket, in the repo
+│   └── board.html               generated view — never edited by hand
 ├── scripts/
 │   ├── verify.mjs
 │   ├── scan-secrets.mjs
 │   ├── changed-line-coverage.mjs
 │   ├── collect-week.mjs          the weekly hour's raw material, assembled
+│   ├── board.mjs                 check the board, rebuild its index and view
 │   └── break-it.mjs              proves each gate rejects what it claims to, offline
 ├── CLAUDE.md                     the rules that are always true
 ├── REVIEW.md                     review criteria, owned by the team
@@ -1892,4 +1896,288 @@ if (WRITE) {
   process.stderr.write(`\nwrote log/weeks/${wk}.md\n`);
 }
 process.exit(problems.length ? 1 : 0);
+```
+
+### `scripts/board.mjs`
+
+Three modes over one source. `--check` asserts the board is well-formed and that its view is current;
+`--index` rewrites the summary table inside `board.md`; `--html` regenerates `tasks/board.html`.
+
+The design decision worth understanding is why a second representation is safe here when it usually is not.
+The project this board came from keeps a hand-maintained `dag-board.html` and has a written lesson that
+exists **only** because its agent kept forgetting to update it — a rule in prose standing in for a check,
+which is the failure these documents are about. Here the view is generated and its staleness is a fact:
+`--check` rebuilds it in memory and fails when what is on disk differs, a `PostToolUse` hook regenerates it
+whenever a session writes a file, and `verify.yml` refuses to merge a stale one. Nothing is left to anyone
+remembering, because nothing has to be remembered — change `board.md` and the view follows.
+
+```javascript
+#!/usr/bin/env node
+// The board is the tracker, so the two properties that keep it honest are checked rather than trusted.
+//
+//   node scripts/board.mjs --check            # every entry well-formed; used by CI
+//   node scripts/board.mjs --check PULSE-142  # ...and this ticket has an entry
+//   node scripts/board.mjs --index            # rewrite the index table in place
+//   node scripts/board.mjs --html             # regenerate tasks/board.html
+//
+// tasks/board.md is the ONLY writable source. board.html is generated from it and must never be edited by
+// hand — that is the whole reason it is safe to have. The project this board was adopted from keeps a
+// hand-maintained dag-board.html and has a written lesson that exists only because its agent kept
+// forgetting to update it. A generated view cannot be forgotten: `--check` regenerates it in memory and
+// fails if what is on disk differs, so a stale view cannot merge, and a Claude hook regenerates it the
+// moment the board changes.
+
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+
+const BOARD = "tasks/board.md";
+const args = process.argv.slice(2);
+const TICKET = args.find((a) => /^[A-Z][A-Z0-9]+-[0-9]+$/.test(a));
+
+if (!existsSync(BOARD)) {
+  console.error(`::error::${BOARD} is missing. The board IS the tracker — without it a ticket has no home.`);
+  process.exit(1);
+}
+const raw = readFileSync(BOARD, "utf8");
+const lines = raw.split("\n");
+
+// ── parse ───────────────────────────────────────────────────────────────────────────────────────────
+// An entry is a level-1 heading whose text starts with a ticket id. Everything above the first one is
+// the file's own preamble, and the fenced template inside it must not be read as an entry — so fences
+// are tracked and skipped.
+const entries = [];
+let fence = null;
+lines.forEach((line, i) => {
+  const f = line.match(/^(`{3,})/);
+  if (f) { fence = fence && line.startsWith(fence) ? null : fence || f[1]; return; }
+  if (fence) return;
+  const m = line.match(/^# ([A-Z][A-Z0-9]+-[0-9]+)\b\s*(.*)$/);
+  if (m) entries.push({ id: m[1], title: m[2].replace(/^—\s*/, ""), line: i + 1, body: [] });
+  else if (entries.length) entries.at(-1).body.push(line);
+});
+
+for (const e of entries) {
+  const text = e.body.join("\n");
+  e.state = (text.match(/^\*\*State\*\*\s*(.+)$/m)?.[1] || "").trim();
+  e.done = /^DONE\b/i.test(e.state);
+  e.blockedBy = (text.match(/^\*\*Blocked by\*\*\s*(.+)$/m)?.[1] || "").trim();
+  e.hasResolution = /^##\s+Resolution\b/m.test(text);
+  e.num = Number(e.id.split("-")[1]);
+}
+
+// ── the view ────────────────────────────────────────────────────────────────────────────────────────
+// Generated from the entries above. Self-contained: no network, no fonts, no scripts, so it opens from
+// disk and from a static host identically, and renders in light or dark.
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// Enough markdown for a board entry to stay readable. Deliberately small — a dependency here would put a
+// package install between somebody and looking at the board.
+function mini(md) {
+  const out = [];
+  let list = false, code = false;
+  for (const raw of md.split("\n")) {
+    const l = raw.replace(/\s+$/, "");
+    if (/^\s*```/.test(l)) { if (list) { out.push("</ul>"); list = false; } code = !code; out.push(code ? "<pre><code>" : "</code></pre>"); continue; }
+    if (code) { out.push(esc(raw)); continue; }
+    const inline = (s) => esc(s)
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>");
+    const h = l.match(/^(#{2,4})\s+(.*)$/);
+    const li = l.match(/^\s*[-*]\s+(?:\[( |x|X)\]\s+)?(.*)$/);
+    if (h) { if (list) { out.push("</ul>"); list = false; } out.push(`<h4>${inline(h[2])}</h4>`); continue; }
+    if (li) {
+      if (!list) { out.push("<ul>"); list = true; }
+      const box = li[1] === undefined ? "" : `<span class="box ${/x/i.test(li[1]) ? "on" : ""}">${/x/i.test(li[1]) ? "✓" : ""}</span>`;
+      out.push(`<li>${box}${inline(li[2])}</li>`);
+      continue;
+    }
+    if (list) { out.push("</ul>"); list = false; }
+    if (l.trim() === "") continue;
+    out.push(`<p>${inline(l)}</p>`);
+  }
+  if (list) out.push("</ul>");
+  if (code) out.push("</code></pre>");
+  return out.join("\n");
+}
+
+function buildHtml() {
+  const bucket = (e) =>
+    e.done ? "done"
+    : /^blocked/i.test(e.state) ? "blocked"
+    : /^in progress/i.test(e.state) ? "running"
+    : "open";
+  const GROUPS = [
+    ["running", "In progress", "Being worked on right now"],
+    ["blocked", "Blocked", "Waiting on an answer or another ticket"],
+    ["open", "Open", "Ready to pick up"],
+    ["done", "Done", "Closed, with a resolution"],
+  ];
+  const counts = Object.fromEntries(GROUPS.map(([k]) => [k, entries.filter((e) => bucket(e) === k).length]));
+
+  const card = (e) => {
+    const body = e.body.join("\n").replace(/^\*\*(State|Depth|Blocked by|Raised by)\*\*.*$/gm, "").trim();
+    const meta = [e.state, e.blockedBy && `blocked by ${e.blockedBy}`].filter(Boolean).join(" · ");
+    return `<details class="card ${bucket(e)}"${bucket(e) === "running" ? " open" : ""}>
+<summary><span class="id">${esc(e.id)}</span><span class="title">${esc(e.title || "")}</span><span class="meta">${esc(meta)}</span></summary>
+<div class="body">${body ? mini(body) : "<p class='empty'>No detail recorded. An entry with no Goal or Findings is a title, not a ticket.</p>"}</div>
+</details>`;
+  };
+
+  return `<title>Board</title>
+<style>
+:root{--bg:#fbfaf8;--panel:#fff;--ink:#1a1a19;--ink2:#55554f;--ink3:#87877f;--line:#e6e3dc;
+--run:#8a5a2b;--blk:#9c3d2e;--opn:#4a4a7a;--dne:#2d6a4f;--mono:ui-monospace,'SF Mono',Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#161619;--panel:#1e1e22;--ink:#ececea;--ink2:#b0b0aa;
+--ink3:#82827c;--line:#32323a;--run:#d99f5e;--blk:#e39b8c;--opn:#a8a8c8;--dne:#7fc6a1}}
+:root[data-theme=dark]{--bg:#161619;--panel:#1e1e22;--ink:#ececea;--ink2:#b0b0aa;--ink3:#82827c;
+--line:#32323a;--run:#d99f5e;--blk:#e39b8c;--opn:#a8a8c8;--dne:#7fc6a1}
+:root[data-theme=light]{--bg:#fbfaf8;--panel:#fff;--ink:#1a1a19;--ink2:#55554f;--ink3:#87877f;
+--line:#e6e3dc;--run:#8a5a2b;--blk:#9c3d2e;--opn:#4a4a7a;--dne:#2d6a4f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:40px 22px 80px}
+h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+.note{color:var(--ink3);font:400 12px/1.5 var(--mono);margin:0 0 26px}
+.tallies{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 30px}
+.tally{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:8px 12px;min-width:96px}
+.tally b{display:block;font:650 20px/1.2 var(--mono)}
+.tally span{font:500 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.tally.running b{color:var(--run)}.tally.blocked b{color:var(--blk)}
+.tally.open b{color:var(--opn)}.tally.done b{color:var(--dne)}
+h2{font:650 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);
+margin:34px 0 4px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+h2 em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink3)}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:7px;margin:8px 0;overflow:hidden}
+.card>summary{cursor:pointer;padding:11px 14px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;list-style:none}
+.card>summary::-webkit-details-marker{display:none}
+.card>summary::before{content:'▸';color:var(--ink3);font-size:11px;margin-right:2px}
+.card[open]>summary::before{content:'▾'}
+.id{font:600 12px/1.4 var(--mono)}
+.card.running .id{color:var(--run)}.card.blocked .id{color:var(--blk)}
+.card.open .id{color:var(--opn)}.card.done .id{color:var(--dne)}
+.title{flex:1;min-width:200px}
+.card.done .title{color:var(--ink2)}
+.meta{font:400 11px/1.4 var(--mono);color:var(--ink3)}
+.body{padding:2px 16px 14px;border-top:1px solid var(--line);color:var(--ink2);font-size:14px}
+.body h4{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink3);margin:16px 0 4px}
+.body p{margin:6px 0}.body ul{margin:6px 0;padding-left:20px}.body li{margin:3px 0}
+.body code{font:400 12.5px var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:.5px 4px}
+.body pre{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:10px}
+.body pre code{border:0;background:none;padding:0}
+.box{display:inline-block;width:13px;height:13px;border:1px solid var(--line);border-radius:3px;
+margin-right:7px;text-align:center;font-size:9px;line-height:12px;color:var(--dne)}
+.box.on{border-color:var(--dne)}
+.empty{color:var(--ink3);font-style:italic}
+.none{color:var(--ink3);font-size:13px;margin:10px 0}
+</style>
+<div class="wrap">
+<h1>Board</h1>
+<p class="note">Generated from tasks/board.md — do not edit. Regenerate: node scripts/board.mjs --html</p>
+<div class="tallies">
+${GROUPS.map(([k, label]) => `<div class="tally ${k}"><b>${counts[k]}</b><span>${label}</span></div>`).join("\n")}
+</div>
+${GROUPS.map(([k, label, hint]) => {
+  const list = entries.filter((e) => bucket(e) === k).sort((a, b) => a.num - b.num);
+  return `<h2>${label} <em>— ${hint}</em></h2>\n${list.length ? list.map(card).join("\n") : `<p class="none">Nothing here.</p>`}`;
+}).join("\n")}
+</div>
+`;
+}
+
+// ── check ───────────────────────────────────────────────────────────────────────────────────────────
+if (args.includes("--check")) {
+  const problems = [];
+
+  // A duplicate id makes two branches resolve to one spec, and spec.yml cannot tell them apart.
+  const seen = new Map();
+  for (const e of entries) {
+    if (seen.has(e.id)) problems.push(`${e.id} appears twice (lines ${seen.get(e.id)} and ${e.line}). Ids are never reused.`);
+    else seen.set(e.id, e.line);
+  }
+
+  for (const e of entries) {
+    if (!e.state) problems.push(`${e.id} has no **State** line. open | in progress | blocked | DONE (date)`);
+
+    // The honesty check. Marking something done without saying what changed — and what did NOT — throws
+    // away the more useful half, which is the whole reason this board beats a tracker field.
+    if (e.done && !e.hasResolution)
+      problems.push(`${e.id} is DONE with no "## Resolution". Say what changed, what you deliberately left alone, and what is still open.`);
+
+    // A blocker that does not exist is a typo wearing the appearance of a dependency.
+    for (const b of e.blockedBy.split(/[,\s]+/).filter((x) => /^[A-Z][A-Z0-9]+-[0-9]+$/.test(x)))
+      if (!seen.has(b)) problems.push(`${e.id} is blocked by ${b}, which has no entry on the board.`);
+  }
+
+  if (TICKET && !seen.has(TICKET))
+    problems.push(`This branch is ${TICKET} and the board has no entry for it. Add one before opening a pull request — a ticket that exists only in a branch name is not a ticket.`);
+
+  if (problems.length) {
+    console.error(`::error::${BOARD} has ${problems.length} problem(s).`);
+    problems.forEach((p) => console.error(`  ${p}`));
+    process.exit(1);
+  }
+  // The view is generated, so staleness is a fact rather than a matter of diligence: regenerate it in
+  // memory and compare. This is what makes it impossible for a session to "forget" the HTML.
+  const wanted = buildHtml();
+  const onDisk = existsSync("tasks/board.html") ? readFileSync("tasks/board.html", "utf8") : null;
+  if (onDisk !== wanted) {
+    console.error("::error::tasks/board.html is stale — it does not match tasks/board.md.");
+    console.error("  Run: node scripts/board.mjs --html   and commit the result.");
+    console.error("  It is generated, never hand-edited, which is the only reason it is safe to keep.");
+    process.exit(1);
+  }
+
+  const open = entries.filter((e) => !e.done).length;
+  console.log(`${BOARD}: ${entries.length} entries, ${open} open, ${entries.length - open} done. Well-formed, view current.`);
+  process.exit(0);
+}
+
+// ── index ───────────────────────────────────────────────────────────────────────────────────────────
+// Regenerated in place between markers, so the "view" is the file itself and can never be stale in a way
+// nobody sees. Running this is idempotent; a drifted index shows up as a diff.
+if (args.includes("--index")) {
+  const START = "<!-- board:index -->";
+  const END = "<!-- /board:index -->";
+  const rows = entries
+    .slice()
+    .sort((a, b) => Number(a.done) - Number(b.done) || a.num - b.num)
+    .map((e) => `| ${e.done ? "✓" : "·"} | \`${e.id}\` | ${e.title || ""} | ${e.state || "—"} | ${e.blockedBy || ""} |`);
+  const table = [
+    START,
+    "",
+    "| | Ticket | | State | Blocked by |",
+    "|---|---|---|---|---|",
+    ...rows,
+    "",
+    `_${entries.filter((e) => !e.done).length} open, ${entries.filter((e) => e.done).length} done. Regenerate with \`node scripts/board.mjs --index\`._`,
+    "",
+    END,
+  ].join("\n");
+
+  let out;
+  if (raw.includes(START) && raw.includes(END)) {
+    out = raw.slice(0, raw.indexOf(START)) + table + raw.slice(raw.indexOf(END) + END.length);
+  } else {
+    // First run: place it directly after the file's opening paragraph, before the first section.
+    const at = lines.findIndex((l, i) => i > 0 && /^## /.test(l));
+    const head = at === -1 ? lines : lines.slice(0, at);
+    const tail = at === -1 ? [] : lines.slice(at);
+    out = [...head, table, "", ...tail].join("\n");
+  }
+  if (out === raw) console.log("Index already current.");
+  else { writeFileSync(BOARD, out); console.log(`Index rewritten: ${entries.length} entries.`); }
+  process.exit(0);
+}
+
+if (args.includes("--html")) {
+  const out = buildHtml();
+  const path = "tasks/board.html";
+  const current = existsSync(path) ? readFileSync(path, "utf8") : null;
+  if (current === out) console.log("tasks/board.html already current.");
+  else { writeFileSync(path, out); console.log(`tasks/board.html written: ${entries.length} entries.`); }
+  process.exit(0);
+}
+
+console.error("Usage: board.mjs --check [TICKET-ID] | --index | --html");
+process.exit(2);
 ```

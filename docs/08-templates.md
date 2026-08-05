@@ -715,6 +715,31 @@ client have no view of it. If they need one, generate it — the repo writes, th
 other way round. If someone starts typing status into the tool, you now have two answers and the tool's is
 the one that will be quoted at you.
 
+<!-- board:index -->
+
+| | Ticket | | State | Blocked by |
+|---|---|---|---|---|
+| ✓ | `PULSE-000` | example, delete this | DONE (2026-08-06) |  |
+
+_0 open, 1 done. Regenerate with `node scripts/board.mjs --index`._
+
+<!-- /board:index -->
+
+## Seeing it, and keeping it honest
+
+The index at the top is generated from the entries below — run `node scripts/board.mjs --index` and commit
+the result. It lives *in this file* on purpose. A separate dashboard, or an HTML board, is a second place
+holding the same truth: the project this board was adopted from keeps a `dag-board.html` and has a written
+lesson that exists only because the agent kept forgetting to update it. One writer, one representation. If
+delivery wants a picture, generate it on demand and throw it away.
+
+Two things are checked rather than trusted:
+
+| | Where | Tier |
+|---|---|---|
+| The branch's ticket has an entry here, and a DONE entry has a Resolution | `spec.yml`, on every pull request | **1** — gated |
+| Ids unique, blockers exist, every DONE entry resolved | `scripts/board.mjs --check`, pre-push | 2 — a hint, `--no-verify` walks past |
+
 ## Scale limit
 
 One file is right up to roughly five or six people. Past that, concurrent edits to the same file conflict
@@ -742,6 +767,7 @@ Copy this. Every heading earns its place, and the last two are the ones people s
 
 **State** open | in progress | blocked | DONE (YYYY-MM-DD)
 **Depth** light | standard | high   ·   **Raised by** a person, a review, an incident, another ticket
+**Blocked by** PULSE-101 — omit the line when nothing blocks it
 
 ## Goal
 
