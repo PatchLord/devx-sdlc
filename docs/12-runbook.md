@@ -47,6 +47,18 @@ name means a fortnight of leave stops promotion to uat.
 and stage entry and exit dates. These are the three that cannot be reconstructed afterwards. Everything else
 in [the six numbers](11-measurement.md) can be back-filled from git history; these cannot.
 
+**A second person, and this one is structural rather than preferable.** One person filling every role
+approves their own specs, their own criteria changes and their own pull requests. `CODEOWNERS` becomes
+decoration, the perimeter check passes while protecting nothing, and the central gate — never approve your
+own work — is fictional. If a second reviewer genuinely is not available for the first run, say so in
+writing when reporting the result, because an unstated invalidity is how a trial becomes folklore.
+
+**What claim the first run is meant to support.** Decide it before starting, because it decides whether you
+are allowed to tidy up before showing anyone. *The process catches what unstructured work does not* is
+provable in a fortnight. *The process is faster* is not, at any ticket count you will reach — and the first
+person who asks about sample size wins that argument. Pick the first, and then the most valuable thing you
+can show is what got blocked.
+
 ## Day 1 — branch protection, and the check that reads it
 
 Clone the starter, `bun install`, `bun run setup` — that installs the Lefthook hooks, which are hints and not
@@ -169,11 +181,32 @@ still run the gate set you intend to sell at Standard. The loop, the size ceilin
 never change with [depth](05-depth.md); the internal project exists to exercise the gates, not to right-size
 them.
 
-Two constraints on what you pick. It must contain **at least one screen a person types into**, with an
+**It must not be greenfield, and this is the constraint most likely to be got wrong.** A fresh toy project —
+the to-do app that everyone reaches for — exercises almost nothing this process was built to catch. There are
+no existing tests to weaken, so [the gates check](06-enforcement.md)'s central asymmetry never fires. There
+is no stale design document, so the divergence field is empty by construction and the one defence that
+matters goes untested. There are no patterns already in the codebase, so the explore agent's job is vacuous
+and every ticket grades *well-trodden*. Nothing is pre-existing, so that grade is never used. The result is a
+green run that proves the happy path is green, which is the exact failure these documents spend their length
+warning about.
+
+Pick something with **history, warts and tests somebody else wrote.** An internal project that already
+exists and is already disappointing is the ideal first target — and it has the second advantage of making
+the comparison legible to whoever is deciding whether to adopt this, because the counterfactual is already
+deployed rather than imagined.
+
+Three more constraints on what you pick. It must contain **at least one screen a person types into**, with an
 acceptance criterion naming a screenshot or a script. The pilot's admin panel had nine write hooks and zero
 buttons, zero forms, zero submit handlers: the write side existed at every layer except the one a human
-touches, because the gate it was given could only see reads. And it must include **at least one ticket on a
-CODEOWNERS-protected path**, so the code-owner review route is walked before a client depends on it.
+touches, because the gate it was given could only see reads. It must include **at least one ticket on a
+CODEOWNERS-protected path**, so the code-owner review route is walked before a client depends on it. And at
+least one ticket must **modify a test that already existed** — otherwise the distinction the whole gate set
+turns on, that new tests are implementation and changed tests are a gate change, is never once exercised.
+
+Choose the tickets for **mechanism coverage rather than for what is most broken**. One that touches a
+protected path forces a class A escalation. One where the code and the documentation disagree forces a class
+B and puts something in the divergence field. One that is genuinely too large either forces a split at the
+size ceiling or proves the ceiling is in the wrong place, and both are findings.
 
 Eight tickets minimum across two features, including one spike whose only deliverable is a committed fixture.
 Then run [the release checklist](08-templates.md) into `docs/releases/v0.1.0.md` even though the depth table
@@ -183,6 +216,13 @@ cannot rehearse a restore drill for the first time inside a client's launch wind
 **Pass condition: every required check has failed at least once for a real cause, the release file has an
 evidence link in every third column, and the Monday cron shows a `perimeter` run nobody triggered.** Any check
 that has never gone red across eight tickets is a check you have not tested.
+
+**If you are showing this to anyone, show the blocks.** The instinct is to rehearse until the run is clean,
+and it destroys the only evidence worth presenting. A demonstration in which nothing was ever blocked is a
+demonstration of a system that does not block. The interesting frames are a gate refusing something with a
+failure message the agent then self-heals from, an escalation arriving and being answered in two minutes, the
+divergence field non-empty with the design document fixed in the same pull request, and one honest gap in the
+evidence. Nobody is impressed by an agent writing code; that is table stakes now.
 
 ## Week 4 — the review agent's decision point
 

@@ -222,6 +222,22 @@ or a release; that is what the scheduled scans are for. And these numbers cannot
 control arm and, per the redesigned follow-up, we are not going to get one, so six numbers moving
 together tell us where to look and never what caused it. [Limits](14-limits.md) has the longer list.
 
+## The candidate seventh: rework
+
+Not one of the six, and it should be if the pain a team most wants proved solved is *endless refactoring*.
+Neither number five nor number two sees it: work that gets redone because it was built against a shape that
+was never fixed produces no defect and no wait, only cost.
+
+**Definition, if it is added.** Tickets reopened, or substantially redone within a phase, over tickets
+merged. "Substantially" needs a written line — a second pull request touching more than half the same files
+is a defensible one, and it is countable from git rather than from anyone's memory.
+
+**Decide before the first ticket, or not at all.** Like who found each defect, it cannot be reconstructed
+afterwards: reopening is only visible if reopening is recorded at the time, and a ticket quietly superseded
+by a new one leaves nothing behind. The contracts-first rule and the spec-before-code rule are both aimed
+squarely at this number, so leaving it unmeasured means the two most expensive parts of the process go
+unevaluated.
+
 ## If something is cut for time, cut a gate
 
 A gate we have not built yet is a known absence. Everyone downstream can reason about it, and it can be
