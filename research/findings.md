@@ -1,0 +1,70 @@
+# Findings ledger
+
+Every claim we have examined, and what happened to it. Append-only: a refuted finding stays here so
+nobody re-litigates it, and a source covering old ground becomes a grep instead of a workflow.
+
+**Verdicts.** `accepted` — changed the manual. `refuted` — examined and rejected, reason recorded.
+`corroborates` — true, already covered, no change. `unsourced` — direction may hold, digits dropped.
+
+**The rule for accepting anything:** it must change what a developer does on Monday. A finding that
+only changes how the manual reads is an edit, not a finding.
+
+---
+
+## Adjudicated
+
+| # | Claim | From | Verdict | Outcome |
+|---|---|---|---|---|
+| 1 | Speed is the constraint; AI makes delivery faster | general | **refuted** | Checking is the constraint. Idea 1. |
+| 2 | METR: developers 19% slower while believing 20% faster | METR, early 2025 | **unsourced as current** | Measures early-2025 tools. Follow-up redesigned; no control group exists any more. Dated in §3, never quoted as current. |
+| 3 | Productivity effect is large | meta-analysis, May 2026 | **accepted** | g = 0.33 [0.09, 0.58], smaller in enterprise than lab. Replaced all single-trial claims. |
+| 4 | Output rises measurably | Microsoft, Jul 2026 | **accepted** | +24% merged PRs, sustained 4 months. Authors' own caveat used as Idea 4. |
+| 5 | Greenfield RCT: 55.8% faster | arXiv 2302, Feb 2023 | **retired** | Three years old. Removed rather than dated, since the meta-analysis supersedes it. |
+| 6 | Agent swarms for one ticket | AWS AI-DLC | **refuted** | Parallel agents are safe only when they need not agree. Sequence, not concurrency. |
+| 7 | Human review on every pull request | AWS AI-DLC | **refuted** | Arithmetic fails at 60 tickets. Review is per path, not per project. |
+| 8 | Hooks as the enforcement layer | general | **refuted** | `--no-verify` walks past them and an agent can edit the hook files. |
+| 9 | Whole-repo coverage as a gate | general | **refuted** | 78% suite at 31% mutation passes it. Changed lines only. |
+| 10 | Mob elaboration replaces async handover | AWS AI-DLC | **refuted as an edit** | Depends on controls our enforcement lacks; §01 already puts QA in the room. Still open as an org question, see open-questions. |
+| 11 | "Understand every line you ship" as a rule | AWS AI-DLC | **refuted** | Unenforceable, so writing it down makes it a wish — ideas 3 and 4. The author's obligation is real; the rule is not writable. |
+| 12 | Velocity multiplies defect rate (arithmetic) | AWS AI-DLC | **refuted** | We have the measured form: incidents per PR up 242.7%. Measured beats hypothetical. |
+| 13 | Point the agent at a reference implementation | AWS AI-DLC | **corroborates** | Spec template already requires naming existing patterns. |
+| 14 | Context is a managed resource | AWS AI-DLC | **corroborates** | Fresh context per role, committed fixtures, already in the loop. |
+| 15 | §11 measures only inside the build loop | our own sources file | **accepted** | Our sources said measure "lead time, PR size, review time and defect rate"; we had two of four. Added numbers 5 and 6. |
+| 16 | Novelty is a routing axis, distinct from cost | Karpathy, nanochat | **accepted** | Well-trodden / novel here / genuinely novel. Sets leash length, not apparatus. |
+| 17 | "Vibe coding" was coined for throwaway work | Karpathy, Feb 2025 | **accepted** | One attributed line; the attribution is the fact. |
+| 18 | 95% of AI pilots fail | AWS leader talk | **refuted** | Non-peer-reviewed working paper, 52 interviews, by a project selling the recommended fix. Talk also invents a causal link the study never makes. |
+| 19 | Juniors ship 17% more code, understand 17% less | AWS leader talk | **refuted as stated** | Fabricated symmetry. Real finding: 17% lower comprehension (n=52). No "17% more code" exists. |
+| 20 | AI generates 10x faster, 3x harder to validate | AWS leader talk | **refuted** | No source found. Invented precision. |
+| 21 | Deskilling erodes verification skill | Anthropic + meta-analysis + BairesDev | **accepted** | Three converging sources. §14 gained the risk and three usage rules. The usage pattern, not the tool, decides. |
+| 22 | Policy enforcement outside the model loop | Singapore IMDA, Jan 2026 | **accepted as corroboration** | Independent confirmation of the perimeter principle. Exposed one real gap: agent identity. |
+| 23 | Four-layer governance | AWS leader talk slide | **partly accepted** | Three of four we have. Embedded security specialist we will not have; said so plainly. Prompted the scan.yml audit. |
+| 24 | Security scanning belongs in the enforcement table | **our own audit** | **accepted** | We cited 41.1% survival to HEAD and shipped no gate. Built `scan.yml`, scheduled not per-PR, because the survivors were introduced by changes that passed. |
+| 25 | The bottleneck shifts from building to deciding | AWS leader talk | **deferred to a question** | Not a doc change: we have no data on our own decision latency. Opened as C5, and it is measurable from number 2 once the wait is split into waiting-on-us and waiting-on-them. |
+| 26 | Code is free; the scarce resources are human time, human and model attention, and context window | Lopopolo, OpenAI, Feb 2026 | **accepted as sharpening** | Our Idea 1 said "checking is the constraint". Naming *three* scarce resources, two of them attention rather than time, explains why context efficiency is a practice and not tidiness. |
+| 27 | Skills should let the agent operate the project, not just describe the process | same | **accepted** | The largest gap the transcript exposed. We mandated evidence for anything with an interface and shipped nothing that could boot an app or drive a browser, so it always fell to a person. Built `operate-app`. |
+| 28 | Garbage collection: a scheduled slot converting slop into checks | same | **accepted** | We had the principle with no method and no time. Built `garbage-collect` and put an hour in the weekly rhythm. Their version also runs automated refactor PRs — not adopted, see open questions. |
+| 29 | A failure message should be a prompt, not a diagnosis | same | **accepted** | Audited all 25 agent-actionable gate failures; four diagnosed without remediating and now carry the fix. 21 of 25 pass. |
+| 30 | "Every time you type continue, the harness failed" | same | **accepted as a diagnostic** | Added to the developer section as the sharpest available signal of harness maturity. Not made a seventh number — see open questions. |
+| 31 | Make everything the same, for context rather than tidiness | same | **accepted** | One canonical helper, one way per thing, because transferable context makes the model's output predictable. Added as the closing habit of the build loop. |
+| 32 | Structural tests: file length caps, layer dependency direction, one canonical implementation | same | **deferred to a question** | A class of check we do not have and probably should. Needs project-specific values, so it is a question rather than an edit. |
+| 33 | Enforce invariants, do not micromanage implementations | same | **corroborates** | Already how our gates are shaped — we check the diff, the ancestry, the mixing, never the design. Worth having the phrasing. |
+| 34 | Plans should be pushed as a PR and reviewed line by line before kickoff | same | **corroborates strongly** | This is our spec gate, arrived at independently from the opposite direction. He warns that approving an unread plan encodes instructions you do not want followed. |
+| 35 | Zero human review before merge; ~10x speedup | same | **refuted for us** | Their context: greenfield, one internal codebase, 3–7 senior engineers at a frontier lab, no client acceptance, no fixed price, ~$1,000/day per person in tokens. We answer to clients and have protected paths. The mechanisms transfer; the review posture does not. Their 10x is their own estimate on greenfield work. |
+| 36 | Multiple review agents, one per persona, on every push | same | **deferred to a question** | We have one. Our own sources say four reviewer bots never agreed on a single finding, which argues for lenses rather than votes. Cost and dismissal-rate implications unknown. |
+| 37 | Work the way the frontier labs work | user premise, tested | **refuted** | They disagree on the central question. OpenAI Frontier merged with no human review; Anthropic's Code Review will not approve a PR by design and a human retains final authority on every merge. Same year, opposite answers. The real question is whose *situation* resembles ours, and it is Anthropic's — external consumers, contractual exposure. Mechanisms transfer; the review posture does not. |
+| 38 | Asking a human is free, so volume does not matter | user premise, partly refuted | **corrected** | Free for the agent, not for the human. Anthropic measured it: only 16% of PRs received substantive feedback because engineers were skimming to keep velocity. Same failure as our size ceiling, different place. Fix is not fewer questions but grading (Blocking / Worth knowing / Pre-existing) and routing by class, so attention is rationed rather than assumed infinite. |
+| 39 | Build the autonomous runner | my own proposal, refuted by me | **deferred** | It removes a person typing two commands, about thirty seconds per ticket, and cannot be validated because nothing has run on a host. Ranked fourth behind agent-produced evidence (built), graded and routed escalations (cheap), and the escalation log. A runner driving an unproven loop would industrialise whatever is currently wrong. |
+| 40 | A tuned reviewer with written criteria is not a generic bot | Anthropic, Mar 2026 | **accepted** | Under 1% of findings marked incorrect over months of production use, against the generic-bot studies we cite where four bots never agreed on a finding. The difference is written criteria in a `REVIEW.md` the team owns, separate from the context file. Worth adopting. |
+| 41 | Big pull requests are where the defects are | Anthropic, Mar 2026 | **corroborates** | On PRs over 1,000 lines, 84% receive findings, averaging 7.5 issues. Independent support for the size ceiling from the defect side rather than the attention side. |
+
+## Where accepted findings have actually come from
+
+Worth watching, because it should change where effort goes.
+
+| Source of finding | Accepted |
+|---|---|
+| Auditing our own artifacts | `perimeter.yml` ruleset bug, self-grantable size override, missing security scan, `is_test_path` false positives, gates.yml self-blocking |
+| Our own sources file contradicting the manual | numbers 5 and 6 |
+| External reading | novelty axis, deskilling, governance corroboration |
+
+Three of the last five accepted changes came from checking our own work rather than from reading.
