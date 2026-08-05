@@ -90,7 +90,8 @@ look for.
 
 **Do not coach the implementing agent.** If someone tells it "add a timeout here", the run demonstrates that
 person's prompting rather than the process. The agent gets the spec and the standard; what the gates catch is
-the result. Coaching is rehearsal wearing a different hat, and it produces the green run part 3 warns about.
+the result. Coaching is rehearsal wearing a different hat, and it produces the green run that proves nothing —
+see *the failures that look like success* below.
 
 **The interface standard is complete, not beautiful.** The pilot's visible failure was broken pages and
 read-only flows presenting as writable. The answer to that is a plain, consistent interface where every flow
