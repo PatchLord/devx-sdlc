@@ -12,7 +12,7 @@ declared not worth answering.
 
 | # | Question | Why it blocks | Status |
 |---|---|---|---|
-| B1 | Does any check actually fail on a host when it should? | 27 rows say *written*, none says *proven*. The whole document is about that difference. | open — see experiments E1 |
+| B1 | Does any check actually fail on a host when it should? | 27 rows say *written*, none says *proven*. The whole document is about that difference. | **half closed 2026-08-05** — `break-it.mjs` proves the logic of `size`, `spec` and `gates` rejects and discriminates, 30 cases, and found a shipped defect doing it. The host half (a red check blocking a merge, code-owner review, force-push, stale approvals, valid Actions YAML) is untouched — see E1 |
 | B2 | Does the process survive one real project end to end? | Never run. §14 says so. Every claim about how it feels to work this way is untested. | open — E2 |
 | B3 | Does the review agent find anything a person would have wanted found? | It is a required check on unflattering published evidence. If its dismissal rate is bad it should come off. | open — E3 |
 | B4 | What is our own defect rate, split by who found it? | Number 5 has no baseline, so no reading of it means anything yet. | open — E4 |

@@ -107,16 +107,23 @@ jobs:
 
           # Generated and vendored files are not what a reviewer reads.
           # Keep this list short and justified — every entry here is review you are not doing.
+          #
+          # The `glob` magic is load-bearing, not decoration. Without it git uses wildmatch without
+          # WM_PATHNAME, so `**` is just "any characters" and `**/bun.lockb` requires a slash before the
+          # filename — meaning a lockfile at the repository root was NOT excluded. Since lockfiles live
+          # at the root, every dependency change counted thousands of lines and failed this check for a
+          # reason the comment above says is excluded. Found by scripts/break-it.mjs, which asserts the
+          # exclusions on real paths; the same slip hid root-level *.snap, generated/ and migrations/.
           EXCLUDE=(
-            ':(exclude)**/*.lock'
-            ':(exclude)**/bun.lockb'
-            ':(exclude)**/package-lock.json'
-            ':(exclude)**/pnpm-lock.yaml'
-            ':(exclude)**/yarn.lock'
-            ':(exclude)**/*.snap'
-            ':(exclude)**/generated/**'
-            ':(exclude)**/*.generated.*'
-            ':(exclude)**/migrations/**/*.sql'
+            ':(exclude,glob)**/*.lock'
+            ':(exclude,glob)**/bun.lockb'
+            ':(exclude,glob)**/package-lock.json'
+            ':(exclude,glob)**/pnpm-lock.yaml'
+            ':(exclude,glob)**/yarn.lock'
+            ':(exclude,glob)**/*.snap'
+            ':(exclude,glob)**/generated/**'
+            ':(exclude,glob)**/*.generated.*'
+            ':(exclude,glob)**/migrations/**/*.sql'
           )
 
           STAT=$(git diff --numstat "$BASE...$HEAD" -- . "${EXCLUDE[@]}")
@@ -195,9 +202,9 @@ author granted themselves. Belt and braces, because only the second one is out o
 ```bash
 BASE=$(git merge-base origin/main HEAD)
 git diff --numstat "$BASE...HEAD" -- . \
-  ':(exclude)**/*.lock' ':(exclude)**/bun.lockb' ':(exclude)**/package-lock.json' \
-  ':(exclude)**/pnpm-lock.yaml' ':(exclude)**/yarn.lock' ':(exclude)**/*.snap' \
-  ':(exclude)**/generated/**' ':(exclude)**/*.generated.*' ':(exclude)**/migrations/**/*.sql' \
+  ':(exclude,glob)**/*.lock' ':(exclude,glob)**/bun.lockb' ':(exclude,glob)**/package-lock.json' \
+  ':(exclude,glob)**/pnpm-lock.yaml' ':(exclude,glob)**/yarn.lock' ':(exclude,glob)**/*.snap' \
+  ':(exclude,glob)**/generated/**' ':(exclude,glob)**/*.generated.*' ':(exclude,glob)**/migrations/**/*.sql' \
   | awk '{a+=$1; d+=$2} END {print NR" files, "(a+d)" lines"}'
 ```
 
@@ -493,12 +500,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      # BRANCH comes through `env`, never interpolated into the script body. A branch name is
+      # attacker-controlled and git permits ; $ ` ( ) | & " in one, so `X="${{ ...head.ref }}"` is a
+      # command-injection hole — and on a persistent self-hosted runner that is remote code execution
+      # rather than a spoiled build. The shas are hex and could not carry a payload, but they go through
+      # env too so that no future edit has to reason about which of the three was safe.
       - name: The spec exists, and it came first
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
-          BRANCH="${{ github.event.pull_request.head.ref }}"
 
           TICKET=$(printf '%s' "$BRANCH" | grep -oE '^[A-Z][A-Z0-9]+-[0-9]+' || true)
           if [ -z "$TICKET" ]; then
@@ -536,11 +549,12 @@ jobs:
           echo "The spec is the first commit: $(git log -1 --format='%h %s' "$FIRST")"
 
       - name: A spec revised mid-flight is visible
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
-          BRANCH="${{ github.event.pull_request.head.ref }}"
           TICKET=$(printf '%s' "$BRANCH" | grep -oE '^[A-Z][A-Z0-9]+-[0-9]+')
           SPEC="docs/specs/$TICKET.md"
 

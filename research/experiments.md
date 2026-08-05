@@ -20,8 +20,31 @@ review switched off.
 
 **Then what.** A check that cannot reject is not a check, and its row moves from *written* to *to build*.
 
-**Cost.** An afternoon. **Status.** not started. This is the cheapest experiment we have and it unblocks
-every claim in part 6.
+**Cost.** An afternoon. **Status.** **half done, 2026-08-05.** The offline half is built and passing:
+`scripts/break-it.mjs` runs 30 cases against the gates' real scripts — every rejection above except the two
+that are host facts — plus the legal version of each change, which is what proves a check discriminates
+rather than merely refuses.
+
+It found a fourth defect, and this one had shipped. The pathspec exclusions in `size.yml` used
+`**/bun.lockb` without `glob` magic, so git's wildmatch required a slash before the filename and a lockfile
+**at the repository root was never excluded**. Every dependency change would have counted thousands of
+lines against the ceiling and failed `size` for a reason the comment above it says is excluded. Root-level
+`*.snap`, `generated/` and `migrations/` leaked the same way. Fixed with `,glob` on all nine patterns,
+verified against real paths.
+
+Writing it also surfaced a command-injection hole that no gate could have caught: `spec.yml` interpolated
+`github.event.pull_request.head.ref` straight into bash, and git permits `; $ \` ( ) | &` in a branch name.
+On a persistent self-hosted runner that is remote code execution, not a spoiled build. Both steps now take
+it through `env`.
+
+The harness was then mutation-tested — the substring `is_test_path` and the self-granted override were
+reintroduced one at a time, and each was caught by exactly the case written for it. A suite that passes
+because it tests nothing looks identical to one that works, so this step is not optional.
+
+**Still open, and only a host can close it:** that a red check blocks a merge, that code-owner review is
+enforced, that force-pushes are refused, that stale approvals are dismissed, and that these files are valid
+Actions YAML. B1 stays open until the suite in [host and pipeline](../docs/09-host-and-pipeline.md) runs
+against a real repository.
 
 ---
 

@@ -1,8 +1,8 @@
 # The repository
 
-Everything the agent side of this process needs, as files: forty-four of them, plus three `.gitkeep`
+Everything the agent side of this process needs, as files: forty-five of them, plus three `.gitkeep`
 markers. This document gives you the twenty-two it owns in full, in the order you would create them, and
-tells you where the other twenty-two live.
+tells you where the other twenty-three live.
 
 The reason to start from a template rather than a checklist is our own estimate: hand-built, this takes
 about a fortnight, the result depends on who did it, and the parts that get dropped under pressure are the
@@ -64,7 +64,8 @@ devx-starter/
 │   ├── verify.mjs
 │   ├── scan-secrets.mjs
 │   ├── changed-line-coverage.mjs
-│   └── collect-week.mjs          the weekly hour's raw material, assembled
+│   ├── collect-week.mjs          the weekly hour's raw material, assembled
+│   └── break-it.mjs              proves each gate rejects what it claims to, offline
 ├── CLAUDE.md                     the rules that are always true
 ├── REVIEW.md                     review criteria, owned by the team
 ├── CODEOWNERS                    the protected set, one list

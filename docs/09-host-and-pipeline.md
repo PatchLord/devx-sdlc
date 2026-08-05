@@ -467,6 +467,435 @@ The tab-separated promotion records exist because the elapsed time from client a
 [measurement](11-measurement.md) is computed from them, and they cannot be reconstructed once the runs age
 out. They are written at the moment of promotion for that reason alone.
 
+## Proving the logic first, offline
+
+The suite below is the authority, because only the host can show that a red check blocks a merge. But it
+needs a remote, a runner and five pull requests, so in practice it runs once at setup and never again —
+which leaves the *logic* inside each gate untested for the rest of a project's life. Every defect found in
+these checks so far has been logic, not configuration.
+
+`scripts/break-it.mjs` does the offline half in seconds. Each case builds a throwaway git repository, runs
+the gate's real script against it, and asserts the verdict — including the legal version of the same
+change, which is the half that proves a check discriminates rather than merely refuses.
+
+Run it before the host suite. It is free, it is repeatable, and it catches the class of defect that would
+otherwise cost you five pull requests to discover.
+
+```bash
+node scripts/break-it.mjs          # every case
+node scripts/break-it.mjs size     # one gate
+node scripts/break-it.mjs -v       # with each script's output
+```
+
+Three cases in it are regressions for defects that shipped and were found later: substring path matching
+that classified `src/attestation.ts` as a test, a suppression rule that failed the very commit introducing
+it, and a `size-override` an author could grant themselves. A fourth was found by writing the harness —
+the pathspec exclusions used `**/bun.lockb` without `glob` magic, so a lockfile at the repository root was
+never excluded and every dependency change counted thousands of lines against the ceiling.
+
+It reads each `run:` block out of the workflow YAML rather than keeping a copy, and refuses to run if a
+workflow grows a `${{ }}` expression or an `env:` entry it cannot supply. A harness testing a drifted copy
+is worse than no harness, because it reports green about code that is not shipping.
+
+**What it cannot prove, and must not be allowed to stand in for:** that a red check blocks a merge, that
+code-owner review is enforced, that force-pushes are refused, that stale approvals are dismissed, or that
+these files are valid Actions YAML. Those are host facts. Run the suite below as well.
+
+```javascript
+#!/usr/bin/env node
+// Proves the gates reject what they claim to reject, offline, in seconds.
+//
+// docs/09-host-and-pipeline.md has a break-it suite that runs against a real repository. It is the
+// authority, because only the host can prove a red check actually blocks a merge. But it needs a remote,
+// a runner and five pull requests, so it gets run once at setup and never again — which means the LOGIC
+// inside each gate goes untested for the rest of the project's life.
+//
+// This does the offline half. Each case builds a throwaway git repository, runs the gate's real script
+// against it, and asserts the verdict. Every defect found in these checks so far has been logic:
+// substring path matching that classified src/attestation.ts as a test, a suppression check that failed
+// its own commit, an override anyone could grant themselves. All three are regression cases below.
+//
+//   node scripts/break-it.mjs            # run everything
+//   node scripts/break-it.mjs spec       # one workflow
+//   node scripts/break-it.mjs -v         # show each script's output
+//
+// What this CANNOT prove, and do not let it stand in for: that a red check blocks a merge, that
+// code-owner review is enforced, that force-pushes are rejected, that stale reviews are dismissed, or
+// that these workflows are even valid Actions YAML. Those live on the host. Run the real suite too.
+
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, appendFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
+
+const ROOT = new URL("..", import.meta.url).pathname;
+const only = process.argv.slice(2).filter((a) => !a.startsWith("-"))[0];
+const VERBOSE = process.argv.includes("-v");
+
+// ── extracting the script the workflow actually runs ────────────────────────────────────────────────
+// Read the `run:` block out of the YAML rather than keeping a copy here. A copy drifts, and a harness
+// testing a drifted copy is worse than no harness — it reports green about code that is not shipping.
+function extractRun(workflow, stepName) {
+  const lines = readFileSync(join(ROOT, ".github/workflows", workflow), "utf8").split("\n");
+  const at = lines.findIndex((l) => l.trim() === `- name: ${stepName}`);
+  if (at === -1) throw new Error(`${workflow}: no step named "${stepName}"`);
+  const start = lines.findIndex((l, i) => i > at && /^\s*run: \|\s*$/.test(l));
+  if (start === -1) throw new Error(`${workflow}/${stepName}: no "run: |" block`);
+
+  // The step's own `env:` block, because that is how a workflow is supposed to receive anything
+  // attacker-controlled — a branch name interpolated into the script body is a command-injection hole.
+  // Modelling env here means the harness tests the same composition CI does, and a newly added variable
+  // fails loudly rather than arriving undefined.
+  const envAt = lines.findIndex((l, i) => i > at && i < start && /^\s*env:\s*$/.test(l));
+  const stepEnv = {};
+  if (envAt !== -1) {
+    const envIndent = lines[envAt].match(/^\s*/)[0].length;
+    for (let i = envAt + 1; i < start; i++) {
+      const m = lines[i].match(/^(\s*)([A-Za-z_][A-Za-z0-9_]*):\s*(.+)$/);
+      if (!m || m[1].length <= envIndent) break;
+      stepEnv[m[2]] = m[3].trim();
+    }
+  }
+  const indent = lines[start].match(/^\s*/)[0].length + 2;
+  const body = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    if (lines[i].trim() === "") { body.push(""); continue; }
+    if (lines[i].match(/^\s*/)[0].length < indent) break;
+    body.push(lines[i].slice(indent));
+  }
+  let script = body.join("\n");
+
+  // The only substitution allowed: GitHub expressions we can supply from the environment. Anything else
+  // remaining means the workflow grew an expression this harness does not model, and pretending
+  // otherwise would test a fiction — so it fails loudly instead.
+  const subs = {
+    "github.event.pull_request.base.sha": "$BASE_SHA",
+    "github.event.pull_request.head.sha": "$HEAD_SHA",
+    "github.event.pull_request.head.ref": "$HEAD_REF",
+  };
+  for (const [expr, val] of Object.entries(subs)) {
+    script = script.split(`\${{ ${expr} }}`).join(val);
+  }
+  const leftover = script.match(/\$\{\{[^}]*\}\}/);
+  if (leftover) {
+    throw new Error(
+      `${workflow}/${stepName}: unmodelled expression ${leftover[0]}.\n` +
+      `Add it to the subs map in break-it.mjs, or this harness is testing something the workflow does not do.`);
+  }
+  return { script, stepEnv };
+}
+
+// Which env values the harness can supply itself. Anything else in a step's env block has to be given by
+// the case, and if neither can supply it the run is aborted rather than executed with it undefined.
+const RESOLVE = {
+  "${{ github.event.pull_request.base.sha }}": (r) => r.BASE_SHA,
+  "${{ github.event.pull_request.head.sha }}": (r) => r.HEAD_SHA,
+  "${{ github.event.pull_request.head.ref }}": (r) => r.HEAD_REF,
+};
+
+// ── a throwaway repository ──────────────────────────────────────────────────────────────────────────
+const git = (cwd, ...a) => execFileSync("git", a, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+
+function build({ branch = "PULSE-142-thing", baseFiles = {}, commits = [] }) {
+  const dir = mkdtempSync(join(tmpdir(), "breakit-"));
+  git(dir, "init", "-q", "-b", "main");
+  git(dir, "config", "user.email", "t@example.com");
+  git(dir, "config", "user.name", "Test");
+  write(dir, { "README.md": "base\n", ...baseFiles });
+  git(dir, "add", "-A");
+  git(dir, "commit", "-qm", "base");
+  const BASE_SHA = git(dir, "rev-parse", "HEAD").trim();
+
+  git(dir, "checkout", "-q", "-b", branch);
+  for (const c of commits) {
+    if (c.delete) for (const f of c.delete) git(dir, "rm", "-q", f);
+    if (c.files) write(dir, c.files);
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", c.message);
+  }
+  return { dir, BASE_SHA, HEAD_SHA: git(dir, "rev-parse", "HEAD").trim(), HEAD_REF: branch };
+}
+
+function write(dir, files) {
+  for (const [p, content] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, p)), { recursive: true });
+    writeFileSync(join(dir, p), content);
+  }
+}
+
+// ── running one case ────────────────────────────────────────────────────────────────────────────────
+const results = [];
+
+function check(name, { script, stepEnv = {}, repo, env = {}, expect, contains, stubGh = null }) {
+  // Resolve the step's declared env, then let the case override. Whatever neither can supply is fatal:
+  // a script running with an undefined input tests nothing and passes suspiciously often.
+  const resolved = {};
+  const unresolved = [];
+  for (const [k, expr] of Object.entries(stepEnv)) {
+    if (RESOLVE[expr]) resolved[k] = RESOLVE[expr](repo);
+    else if (!(k in env)) unresolved.push(`${k}: ${expr}`);
+  }
+  if (unresolved.length) {
+    throw new Error(`${name}: cannot supply step env — ${unresolved.join(", ")}.\n` +
+      `Either add it to RESOLVE, or set it in the case's env so the value is deliberate.`);
+  }
+  const bin = join(repo.dir, ".stub");
+  if (stubGh) {
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${stubGh}\n`, { mode: 0o755 });
+  }
+  const scriptPath = join(repo.dir, ".break-it.sh");
+  writeFileSync(scriptPath, script);
+  const out = join(repo.dir, ".gh-output");
+  writeFileSync(out, "");
+
+  let stdout = "", code = 0;
+  try {
+    stdout = execFileSync("bash", [scriptPath], {
+      cwd: repo.dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        PATH: stubGh ? `${bin}:${process.env.PATH}` : process.env.PATH,
+        BASE_SHA: repo.BASE_SHA, HEAD_SHA: repo.HEAD_SHA, HEAD_REF: repo.HEAD_REF,
+        GITHUB_OUTPUT: out, GITHUB_ENV: join(repo.dir, ".gh-env"), ...resolved, ...env,
+      },
+    });
+  } catch (e) {
+    code = e.status ?? 1;
+    stdout = (e.stdout || "") + (e.stderr || "");
+  }
+
+  const verdict = code === 0 ? "pass" : "fail";
+  const ok = verdict === expect && (!contains || stdout.includes(contains));
+  results.push({ name, expect, verdict, ok,
+    why: ok ? "" : verdict !== expect ? `expected the gate to ${expect}, it ${verdict}ed`
+                                      : `missing expected message: "${contains}"` });
+  if (VERBOSE || !ok) console.log(`\n─── ${name} (${verdict}, wanted ${expect})\n${stdout.trim()}\n`);
+  const written = readFileSync(out, "utf8");
+  rmSync(repo.dir, { recursive: true, force: true });
+  return written;
+}
+
+// ═══ spec.yml ═══════════════════════════════════════════════════════════════════════════════════════
+if (!only || only === "spec") {
+  const first = extractRun("spec.yml", "The spec exists, and it came first");
+  const revised = extractRun("spec.yml", "A spec revised mid-flight is visible");
+  const SPEC = "docs/specs/PULSE-142.md";
+  const spec = { [SPEC]: "# PULSE-142\n\nA spec.\n" };
+  const impl = { "src/thing.ts": "export const thing = 1;\n" };
+
+  check("spec: a branch with no ticket id is rejected before anything else", {
+    ...first, expect: "fail", contains: "does not start with a ticket id",
+    repo: build({ branch: "fix-thing", commits: [{ files: spec, message: "docs: spec" }] }),
+  });
+
+  check("spec: no spec file for the ticket", {
+    ...first, expect: "fail", contains: "Run /spec PULSE-142 before implementing",
+    repo: build({ commits: [{ files: impl, message: "feat: no spec anywhere" }] }),
+  });
+
+  check("spec: the spec is the second commit", {
+    ...first, expect: "fail", contains: "first commit must be the spec alone",
+    repo: build({ commits: [{ files: impl, message: "feat: code first" }, { files: spec, message: "docs: spec after" }] }),
+  });
+
+  check("spec: the first commit is the spec plus something else", {
+    ...first, expect: "fail", contains: "first commit must be the spec alone",
+    repo: build({ commits: [{ files: { ...spec, ...impl }, message: "docs+feat together" }] }),
+  });
+
+  check("spec: spec first, then implementation — the legal ordering", {
+    ...first, expect: "pass", contains: "The spec is the first commit",
+    repo: build({ commits: [{ files: spec, message: "docs: spec" }, { files: impl, message: "feat: thing" }] }),
+  });
+
+  check("spec: a spec revised after implementation began warns, and does not block", {
+    ...revised, expect: "pass", contains: "spec changed after implementation began",
+    repo: build({ commits: [
+      { files: spec, message: "docs: spec" },
+      { files: impl, message: "feat: thing" },
+      { files: { [SPEC]: "# PULSE-142\n\nRevised.\n" }, message: "docs: revise the spec" }] }),
+  });
+}
+
+// ═══ gates.yml — the mixing check ═══════════════════════════════════════════════════════════════════
+if (!only || only === "gates") {
+  const mixing = extractRun("gates.yml", "No commit mixes a gate change with implementation");
+  const wf = { ".github/workflows/size.yml": "name: size\n# a workflow\n" };
+  const src = { "src/two.ts": "export const two = 2;\n" };
+
+  check("gates: a workflow edit and source in one commit", {
+    ...mixing, expect: "fail", contains: "mixes a gate change with implementation",
+    repo: build({ baseFiles: wf, commits: [{ files: { ...wf, ".github/workflows/size.yml": "name: size\n# edited\n", ...src }, message: "chore: touch a gate and source" }] }),
+  });
+
+  check("gates: the same change split into two commits — must discriminate, not just refuse", {
+    ...mixing, expect: "pass", contains: "gate-only change",
+    repo: build({ baseFiles: wf, commits: [
+      { files: { ".github/workflows/size.yml": "name: size\n# edited\n" }, message: "chore: the gate change alone" },
+      { files: src, message: "feat: the source alone" }] }),
+  });
+
+  check("gates: CLAUDE.md and source in one commit", {
+    ...mixing, expect: "fail", contains: "mixes a gate change with implementation",
+    repo: build({ baseFiles: { "CLAUDE.md": "rules\n" }, commits: [{ files: { "CLAUDE.md": "rules\nmore\n", ...src }, message: "chore: rules and code" }] }),
+  });
+
+  check("gates: a NEW test added with the code it covers is implementation, and passes", {
+    ...mixing, expect: "pass",
+    repo: build({ commits: [{ files: { ...src, "src/two.test.ts": "test('two', () => {});\n" }, message: "feat: code and its new test" }] }),
+  });
+
+  check("gates: an EXISTING test modified alongside code is a gate change, and fails", {
+    ...mixing, expect: "fail", contains: "mixes a gate change with implementation",
+    repo: build({ baseFiles: { "src/two.test.ts": "test('two', () => { expect(2).toBe(2); });\n" },
+      commits: [{ files: { ...src, "src/two.test.ts": "test('two', () => {});\n" }, message: "feat: code, and loosen its test" }] }),
+  });
+
+  check("gates: an existing test deleted alongside code fails", {
+    ...mixing, expect: "fail", contains: "mixes a gate change with implementation",
+    repo: build({ baseFiles: { "src/two.test.ts": "test('two', () => {});\n" },
+      commits: [{ files: src, delete: ["src/two.test.ts"], message: "feat: code, and delete its test" }] }),
+  });
+
+  // Regression. With substring matching (*test*|*spec*) attestation.ts reads as a test; modified, it
+  // would be classed as a gate change, both paths would land in the gate bucket, and the commit would
+  // PASS while smuggling source into a gate-only commit.
+  check("gates: REGRESSION — src/attestation.ts is source, not a test", {
+    ...mixing, expect: "fail", contains: "mixes a gate change with implementation",
+    repo: build({ baseFiles: { "src/attestation.ts": "export const a = 1;\n", ...wf },
+      commits: [{ files: { "src/attestation.ts": "export const a = 2;\n", ".github/workflows/size.yml": "name: size\n# edited\n" }, message: "chore: gate plus attestation" }] }),
+  });
+
+  check("gates: REGRESSION — src/specification.ts is source, not a spec file", {
+    ...mixing, expect: "fail", contains: "mixes a gate change with implementation",
+    repo: build({ baseFiles: { "src/specification.ts": "export const s = 1;\n", "CODEOWNERS": "* @team\n" },
+      commits: [{ files: { "src/specification.ts": "export const s = 2;\n", "CODEOWNERS": "* @team\n# edited\n" }, message: "chore: owners plus specification" }] }),
+  });
+
+  check("gates: source alone, no gate touched, passes", {
+    ...mixing, expect: "pass", contains: "No commit mixes a gate change",
+    repo: build({ commits: [{ files: src, message: "feat: just code" }] }),
+  });
+}
+
+// ═══ gates.yml — the suppression check ══════════════════════════════════════════════════════════════
+if (!only || only === "suppress") {
+  const sup = extractRun("gates.yml", "No check was suppressed");
+  const wfBase = { ".github/workflows/verify.yml": "name: verify\njobs:\n  verify:\n    steps:\n      - run: bun test\n" };
+
+  check("suppress: a workflow gaining continue-on-error", {
+    ...sup, expect: "fail", contains: "turns a gate into a decoration",
+    repo: build({ baseFiles: wfBase, commits: [{ files: { ".github/workflows/verify.yml": wfBase[".github/workflows/verify.yml"] + "        continue-on-error: true\n" }, message: "ci: tolerate failure" }] }),
+  });
+
+  check("suppress: a workflow gaining 'if: false'", {
+    ...sup, expect: "fail", contains: "turns a gate into a decoration",
+    repo: build({ baseFiles: wfBase, commits: [{ files: { ".github/workflows/verify.yml": wfBase[".github/workflows/verify.yml"] + "    if: false\n" }, message: "ci: switch it off" }] }),
+  });
+
+  check("suppress: a step ending in '|| true'", {
+    ...sup, expect: "fail", contains: "unable to fail",
+    repo: build({ baseFiles: wfBase, commits: [{ files: { ".github/workflows/verify.yml": wfBase[".github/workflows/verify.yml"] + "      - run: bun run lint || true\n" }, message: "ci: quiet the linter" }] }),
+  });
+
+  // Regression. The naive version of the || true rule failed the very commit that introduced it,
+  // because this workflow uses the command-substitution idiom three times.
+  check("suppress: REGRESSION — '|| true' inside a command substitution is the normal idiom, and passes", {
+    ...sup, expect: "pass",
+    repo: build({ baseFiles: wfBase, commits: [{ files: { ".github/workflows/verify.yml": wfBase[".github/workflows/verify.yml"] + "      - run: X=$(grep -c foo bar || true)\n" }, message: "ci: count without tripping set -e" }] }),
+  });
+
+  check("suppress: a test newly marked .skip(", {
+    ...sup, expect: "fail", contains: "Tests were skipped rather than fixed",
+    repo: build({ baseFiles: { "src/a.test.ts": "test('a', () => {});\n" },
+      commits: [{ files: { "src/a.test.ts": "test.skip('a', () => {});\n" }, message: "test: skip the awkward one" }] }),
+  });
+
+  check("suppress: an ordinary change touching no workflow and skipping nothing", {
+    ...sup, expect: "pass",
+    repo: build({ commits: [{ files: { "src/b.ts": "export const b = 2;\n" }, message: "feat: b" }] }),
+  });
+}
+
+// ═══ size.yml ═══════════════════════════════════════════════════════════════════════════════════════
+if (!only || only === "size") {
+  const measure = extractRun("size.yml", "Measure the diff");
+  const enforce = extractRun("size.yml", "Enforce the ceiling");
+  const pad = (n, name = "src/pad.ts") => ({ [name]: Array.from({ length: n }, (_, i) => `export const pad${i} = ${i};`).join("\n") + "\n" });
+
+  // measure writes files= and lines= to GITHUB_OUTPUT; enforce reads them from env. Run both, threading
+  // the values across exactly as Actions does, so the two steps are tested as they actually compose.
+  const sized = (n, opts = {}) => {
+    const repo = build({ commits: [{ files: pad(n), message: `feat: ${n} lines` }], ...opts.build });
+    const dir = repo.dir;
+    const out = check(`size: measuring ${n} lines`, { ...measure, repo: { ...repo, dir }, expect: "pass" });
+    results.pop(); // the measure step is plumbing, not a case
+    const kv = Object.fromEntries(out.trim().split("\n").filter(Boolean).map((l) => l.split("=")));
+    return kv;
+  };
+
+  const runEnforce = (name, { lines, files, expect, contains, env = {}, stubGh }) =>
+    check(name, { ...enforce, repo: build({ commits: [{ files: { "src/x.ts": "x\n" }, message: "x" }] }),
+      env: { LINES: String(lines), FILES: String(files), OVERRIDE: "false", AUTHOR: "dev",
+             PR: "1", REPO: "acme/demo", GH_TOKEN: "x", ...env },
+      expect, contains, stubGh });
+
+  const big = sized(500);
+  results.push({ name: "size: 500 added lines are measured as 500", expect: "pass",
+    verdict: big.lines === "500" ? "pass" : "fail", ok: big.lines === "500",
+    why: big.lines === "500" ? "" : `measured ${big.lines} lines, expected 500` });
+
+  const lock = (() => {
+    const repo = build({ commits: [{ files: { "bun.lockb": "x\n".repeat(5000), "src/x.ts": "export const x = 1;\n" }, message: "chore: lockfile" }] });
+    const out = check("size: lockfile measurement", { ...measure, repo, expect: "pass" });
+    results.pop();
+    return Object.fromEntries(out.trim().split("\n").filter(Boolean).map((l) => l.split("=")));
+  })();
+  results.push({ name: "size: a 5,000-line lockfile is excluded from the count", expect: "pass",
+    verdict: lock.lines === "1" ? "pass" : "fail", ok: lock.lines === "1",
+    why: lock.lines === "1" ? "" : `measured ${lock.lines} lines, expected 1 — the exclusion list is not working` });
+
+  runEnforce("size: over the ceiling with no override", { lines: 500, files: 1, expect: "fail", contains: "exceeds the ceiling of 400 lines" });
+  runEnforce("size: over the target but under the ceiling passes with a warning", { lines: 350, files: 1, expect: "pass", contains: "over the 300/10 target" });
+  runEnforce("size: comfortably small passes quietly", { lines: 40, files: 2, expect: "pass", contains: "Within the ceiling" });
+  runEnforce("size: over on file count alone fails", { lines: 100, files: 25, expect: "fail", contains: "exceeds the ceiling" });
+
+  runEnforce("size: override applied by a tech lead is allowed, and recorded", {
+    lines: 500, files: 1, env: { OVERRIDE: "true", AUTHOR: "dev" }, expect: "pass", contains: "overridden by lead",
+    stubGh: `echo '"lead"' | tr -d '"'`,
+  });
+
+  // The defect this was written for: an override you grant yourself is a bypass.
+  runEnforce("size: REGRESSION — an override the author applied to their own pull request is a bypass", {
+    lines: 500, files: 1, env: { OVERRIDE: "true", AUTHOR: "dev" }, expect: "fail", contains: "That is a bypass, not an override",
+    stubGh: `echo dev`,
+  });
+
+  runEnforce("size: override label with no labelling event fails rather than passing", {
+    lines: 500, files: 1, env: { OVERRIDE: "true", AUTHOR: "dev" }, expect: "fail", contains: "cannot tell who applied it",
+    stubGh: `echo ""`,
+  });
+}
+
+// ── report ──────────────────────────────────────────────────────────────────────────────────────────
+const w = Math.max(...results.map((r) => r.name.length));
+console.log("");
+for (const r of results) console.log(`  ${r.ok ? "ok  " : "FAIL"}  ${r.name.padEnd(w)}  ${r.why}`);
+const bad = results.filter((r) => !r.ok);
+console.log(`\n  ${results.length - bad.length}/${results.length} cases behaved as documented`);
+if (bad.length) {
+  console.log(`\n  ${bad.length} gate(s) do not do what the documents say they do. That is the point of running this.`);
+  process.exit(1);
+}
+console.log(`
+  Proven: the logic inside these gates rejects what it claims to, and — as importantly — passes the
+  legal version of the same change. Not proven, and only the host can: that a red check blocks a
+  merge, that code-owner review is enforced, that force-pushes are refused, that stale approvals are
+  dismissed, or that these files are valid Actions YAML. Run the suite in
+  docs/09-host-and-pipeline.md against a real repository before calling setup done.`);
+```
+
 ## The break-it suite, in order
 
 A gate that has never rejected anything is indistinguishable from one that cannot. Run these five once, on
