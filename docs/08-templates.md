@@ -1,6 +1,6 @@
 # The templates
 
-Six files in the starter repository are templates: text with holes in it. This document gives each one
+Seven files in the starter repository are templates: text with holes in it. This document gives each one
 complete, says what makes it work, and names the way people most often fill it in wrongly.
 
 Templates are the cheapest part of this process to install — copy six files — and the easiest part to satisfy
@@ -21,8 +21,9 @@ Be clear about how little of it is machine-checked.
 | `docs/decisions/_template.md` | whoever made the call | nothing | all of it |
 | `docs/fixtures/README.md` | agent | `scripts/scan-secrets.mjs` at pre-commit, known patterns only | whether the fixture still matches the live system |
 | `docs/release-checklist.md` | tech lead | nothing | every row |
+| `tasks/board.md` | whoever raises a ticket | `spec.yml` reads the ticket id out of the branch name | whether an entry ever reaches a terminal state |
 
-Four of the six are checked by no machine at all. That is not an oversight we intend to close. A CI job that
+Five of the seven are checked by no machine at all. That is not an oversight we intend to close. A CI job that
 graded prose would be a job the agent writes to, and we already know what that produces — the agent builds to
 the shape of the check. These templates are held up by a code owner reading them, which is why they are short
 enough to read. The jobs named above live in [enforcement](06-enforcement.md); `CODEOWNERS` lives in
@@ -684,3 +685,131 @@ actually went wrong.
 
 - ___
 ```
+
+## `tasks/board.md` — the tracker
+
+Adopted from a live project rather than designed. Its three load-bearing headings are Findings, When picked
+up, and a Resolution that records what did **not** change — none of which a tracker field has room for.
+
+The rule at the bottom is the one that keeps it from becoming a graveyard: every entry reaches a terminal
+state, and the test for that is mechanical rather than a matter of opinion.
+
+````markdown
+# Board
+
+Every ticket, in the repository. **This is the tracker** — not a copy of one, and not a to-do list beside
+one. There is no external tool holding a different answer.
+
+Three reasons it lives here rather than in a tool:
+
+- **The agent can read it.** A session reads this file on every run. It cannot read a tracker without an
+  integration, and an integration on the critical path of a keystroke fails during the one incident where
+  you need it most.
+- **One writer, so nothing drifts.** A ticket's state is a diff with an author and a date. There is no
+  second place holding a different answer.
+- **Status is derived, not typed.** A branch exists, a pull request is open, a merge happened. Nobody moves
+  a card.
+
+And the cost, stated plainly: **people who do not use git cannot see this.** Delivery, the CSM and the
+client have no view of it. If they need one, generate it — the repo writes, the tool displays, never the
+other way round. If someone starts typing status into the tool, you now have two answers and the tool's is
+the one that will be quoted at you.
+
+## Scale limit
+
+One file is right up to roughly five or six people. Past that, concurrent edits to the same file conflict
+constantly and the honest move is one file per ticket under `tasks/` with this same shape. Do not wait for
+the conflicts to become normal before splitting.
+
+## Ticket ids
+
+Minted here, in ascending order, and never reused. Check the highest id in this file before minting; a
+duplicate id makes two branches resolve to one spec and `spec.yml` cannot tell them apart.
+
+The branch is named after it: `PULSE-123-short-slug`. `spec.yml` reads the id from the branch to find
+`docs/specs/PULSE-123.md`, so the id is load-bearing rather than cosmetic.
+
+`PULSE` is a placeholder. **Choose the project's own prefix during Setup** — it must match
+`^[A-Z][A-Z0-9]+-[0-9]+`, which is what `spec.yml` looks for. Whatever you pick, put it in `CLAUDE.md` so
+the agent stops inventing branch names.
+
+## The shape of an entry
+
+Copy this. Every heading earns its place, and the last two are the ones people skip and should not.
+
+```markdown
+# PULSE-123 — one line, no "and"
+
+**State** open | in progress | blocked | DONE (YYYY-MM-DD)
+**Depth** light | standard | high   ·   **Raised by** a person, a review, an incident, another ticket
+
+## Goal
+
+What changes for whom. Two sentences.
+
+## Background — what is already in place
+
+The files and mechanisms that exist today, with paths. Written so whoever picks this up in three weeks
+does not have to rediscover the shape of the code.
+
+## Plan
+
+- [x] Something finished, with the file it landed in
+- [ ] Something not
+
+## Findings
+
+**Verified, not speculative** — and say which. A finding you have reproduced is worth ten you suspect.
+Give the file and line. If something reads like a defect and turned out not to be, record that too:
+"reversed lunch IS already rejected today — verified — it just has no test pinning it" saves the next
+person the same hour.
+
+## When picked up
+
+The concrete next actions, specific enough to start from cold. Decisions that need a person go here as
+questions, not as assumptions.
+
+## Resolution — written when it closes
+
+What actually changed, and **what did not**. The second half is the part that matters:
+
+- what the obvious fix would have got wrong, if you found that out
+- what you deliberately left alone, and why
+- what remains open, named, so closing this ticket does not silently close it
+```
+
+## The rule that keeps this file honest
+
+**Every entry reaches a terminal state.** `DONE` with a resolution, or deleted with a reason. An entry
+that only accumulates is how a board becomes a graveyard nobody opens — and once nobody opens it, adding
+to it is worse than not writing it down, because it feels like the work was captured.
+
+The test is mechanical: `git log --numstat -- tasks/board.md` should show deletions as well as additions.
+A file that has only ever grown has no exit condition, whatever its entries say.
+
+## Deferred work is not a lesser ticket
+
+When a ticket surfaces adjacent work that is genuinely out of scope, it gets an entry here — verified, with
+its findings — rather than being crammed into the current pull request past the size ceiling, or mentioned
+once in a review comment and lost.
+
+That is the difference between a board and a to-do list. A to-do list holds what somebody intends to do. A
+board holds **what is known about work not yet done**, which is worth far more, and is the thing that
+otherwise lives only in the head of whoever found it.
+
+---
+
+# PULSE-000 — example, delete this
+
+**State** DONE (2026-08-06)
+**Depth** light · **Raised by** setting the repository up
+
+## Goal
+
+Show the shape. Delete this entry once a real one exists.
+
+## Resolution
+
+Nothing shipped. It is here so the first person to add an entry has something to copy rather than a
+template to interpret.
+````

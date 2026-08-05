@@ -69,6 +69,7 @@ A TDD describes the system. When it stops matching the system, it is wrong and g
 | **Production-ready standard** | tech lead | grows weekly | living | Project-level, not per phase. `docs/production-ready.md` |
 | **REVIEW.md** | the team | edited freely | living | Review criteria, so changing them needs no agent edit |
 | **Spec** | the developer | explore agent | **frozen at approval** | Branch's first commit, ancestor of every implementation commit |
+| **Board** | the team | whoever raises a ticket | living, entries reach a terminal state | `tasks/board.md`. **This is the tracker**, in the repo |
 | **Decision records** | whoever decided | either | append-only | Superseded, never corrected |
 | **Release checklist** | tech lead | people | one per release | Three columns, and the third is not optional |
 | **Discovery meeting notes** | delivery lead | people | frozen, append a correction | Where the BRD's contradictions surface. Carries the agreed decision-maker and response time |
@@ -83,6 +84,43 @@ It is also worse than merely weak, because it gives a learning somewhere legitim
 check. "I logged it in learnings.md" feels like completion. That is the same failure as writing a rule in
 prose instead of a lint, except it looks like process compliance. And it has no exit condition, so it only
 grows and nothing is ever removed from it.
+
+### Where that argument was too strong — corrected 6 August 2026
+
+A live client project (250 commits, spec-kit driven) keeps both a `tasks/lessons.md` and a board, and the
+two behaved differently enough to settle this:
+
+| | added | deleted | commits |
+|---|---|---|---|
+| its board | +326 | **−9** | 6 |
+| its lessons file | +61 | **0** | 3 |
+
+**The claim about exit conditions survives, measured.** Nothing has ever been removed from that lessons
+file. The board resolves entries in place; the lessons file only accumulates.
+
+**The claim that a learnings document is the wrong artefact does not survive**, and the reason is what its
+entries contain. Every one is an *agent-behaviour* correction, not a code pattern: the shell's working
+directory persists between calls so a "not found" is not proof of absence; never describe a client-side
+control as making invalid input impossible, only as constraining it; when code changes, sweep the whole plan
+document rather than the flagged block, because those documents contain executable recipes and a half-fixed
+one is a regression generator.
+
+**None of those can be a lint.** There is no rule that catches *I concluded a file did not exist after
+searching from the wrong directory.* Our own table above says learning about how to work belongs in
+`CLAUDE.md`, a skill or `REVIEW.md` — and a lessons file is the staging area for exactly that. So the
+correct rule is narrower than the one we wrote:
+
+> A learnings document is the wrong home for anything a check could enforce. For corrections that **no
+> check can express**, it is the right home — provided each entry has somewhere to go afterwards.
+
+That last clause is the whole of it, and it generalises past learnings files:
+
+**An append-only document is safe when every entry has a terminal state, and a graveyard when it does not.**
+The log has dispositions. The board has Resolutions. A lessons file with neither only grows, and the test is
+mechanical rather than a matter of opinion — `git log --numstat` on the file should show deletions. So a
+lessons file is legitimate with one addition: each entry is either **promoted** into `CLAUDE.md` or a skill
+and removed, or **closed** as a one-off. That promotion is work for the weekly hour, alongside converting
+repeated corrections into checks.
 
 Learning already has three homes, and each has a reader:
 
@@ -120,6 +158,61 @@ write it down does not get written down. Review findings, dismissals, what the d
 and the questions a spec asked are all already recorded in pull requests. **Defects found after merge are
 the one hand-written entry**, and they are worth the keystrokes: a defect that reached a person is the only
 measurement here that cannot be gamed.
+
+## The board, and why the tracker can live in the repository
+
+Every document here says *always work from a ticket* and none of them said where the ticket lives. We
+assumed a tracker. A live project answered it differently — the tracker is a file in the repo — and the
+argument for that is stronger than the one we had:
+
+| | A tool | `tasks/board.md` |
+|---|---|---|
+| The agent can read it | only through an integration | **on every run, for free** |
+| Number of writers | two, and they drift | one |
+| Status | typed by a person | derived: a branch exists, a pull request merged |
+| A change to a ticket | an edit nobody reviews | a diff with an author and a date |
+| Non-engineers can see it | **yes** | no |
+| Cross-repo milestones | **yes** | no |
+
+The first row is the one that decides it for agent-run delivery. Our own strongest principle is that the
+only documents with a guaranteed reader are the ones in the repository — that is why `CLAUDE.md` and the
+skills carry what they carry. A tracker fails that test, and an integration that puts a third-party service
+on the critical path of a keystroke fails during exactly the incident where you need it.
+
+The last two rows are the real cost and they are not small. **Delivery, the CSM and the client cannot see a
+markdown file.** If they need a view, generate it: the repository writes, the tool displays, never the
+reverse. The moment somebody types status into the tool there are two answers, and the tool's is the one
+that gets quoted back at you.
+
+**One file works to about five or six people.** Past that, concurrent edits conflict constantly and it
+becomes one file per ticket with the same shape. Split before the conflicts feel normal.
+
+### What an entry carries that a ticket usually does not
+
+Three headings do the work, and they are the ones a tracker's fields do not have room for:
+
+**Findings — verified, not speculative.** What has actually been reproduced, with file and line, kept
+distinct from what is suspected. Including the negative results: *this reads like a defect and is not, it
+just has no test pinning it* saves the next person the same hour.
+
+**When picked up.** The next actions, specific enough to start cold, with the decisions a person must make
+left as questions rather than quietly assumed.
+
+**Resolution, written when it closes — including what did *not* change.** What the obvious fix would have
+got wrong. What was deliberately left alone. What remains open, named, so closing the ticket does not
+silently close it too.
+
+That third heading is the one worth insisting on. A ticket that closes with only a list of what shipped
+loses the more useful half: the live project's own entry records that three of nine apparent defects were
+not defects, and that the obvious automatic fix *would have papered over two of them.* No tracker field
+would have held that, and it is exactly what the next person needs.
+
+### Deferred work has somewhere to go now
+
+Our pull request template lists where a learning lands: a test, a fixture, a decision record, the design
+document, a rule in `CLAUDE.md`, the CSM. **Verified adjacent work that is deliberately out of scope was on
+none of those lists**, so it either bloated the pull request past the size ceiling or evaporated in a review
+comment. It goes on the board, as its own entry, with its findings.
 
 ## Why the TDD is the document that matters most
 
