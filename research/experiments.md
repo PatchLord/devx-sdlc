@@ -111,3 +111,33 @@ near it.
 **Then what.** Move the ceiling to where the evidence puts it. §14 already says it is judgement.
 
 **Cost.** Free alongside E4. **Status.** not started.
+
+---
+
+## E6 — Can evidence be made machine-falsifiable rather than merely green?
+
+**Hypothesis.** For a bug fix, re-running the new test at the base commit and requiring an
+**assertion-level** failure — a captured expected/actual pair, not a collection, import or compile error —
+is buildable on our stack and catches tests that assert nothing.
+
+**Why it is an experiment and not an edit.** ADS-1's version of this is its strongest idea and our nearest
+equivalent is a `REVIEW.md` line, which is tier 2 and probabilistic. It was refuted as an immediate change
+(finding 42) for build-cost reasons, not because the principle is wrong: it needs a machine-readable test
+report per harness, a disposition for unsupported cases, and `verify.mjs` currently hard-fails on any missing
+GATES script. Its sibling, red-on-stub, is conceded broken by ADS-1's own hostile review.
+
+**Method.** On one repository, one language, one test runner. Take ten merged bug fixes; for each, check out
+the base commit, apply only the test, and record whether it fails and *how* — assertion, compile error, or
+pass. No gate, no workflow. Just the distribution.
+
+**Falsified if.** Fewer than about half fail by assertion at base. If most fail by compile error, the gate
+would be satisfiable by tests that assert nothing, which is worse than not having it — ADS-1's own reviewer
+reached exactly this conclusion about its net-new half.
+
+**Then what.** If the distribution is good, it becomes a sixth gate scoped to one language with a published
+support matrix and a first-class N/A disposition, never a tech-lead waiver — because routine waivers on a
+check labelled non-negotiable teach the org that blocking checks are negotiable. If it is bad, the principle
+stays at tier 2 in `REVIEW.md` and this is recorded as settled.
+
+**Cost.** An afternoon on existing history, and it needs no host. **Status.** not started. Cheapest
+remaining experiment after E1's host half.

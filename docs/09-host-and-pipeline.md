@@ -417,16 +417,53 @@ jobs:
 
       - name: Production requires a signed release checklist
         if: inputs.to == 'production'
+        env:
+          BUILD_ID: ${{ inputs.build_id }}
         run: |
           set -euo pipefail
-          F="docs/releases/${{ inputs.build_id }}.md"
+          F="docs/releases/$BUILD_ID.md"
           [ -f "$F" ] || { echo "::error::$F is missing. Stage 05 says a production release carries a dated checklist with evidence links."; exit 1; }
+
+          # A row with BOTH cells blank — a checklist filed with the awkward rows left empty.
+          # Applies to every table in the file, including the two- and three-column ones.
           if grep -qiE '^\|[^|]*\|[[:space:]]*\|[[:space:]]*\|' "$F"; then
-            echo "::error::$F has rows with an empty verification or evidence column."
+            echo "::error::$F has rows with both the verification and evidence columns empty."
             echo "Fill in how each line was verified and link the evidence, or waive the line in writing"
             echo "with a named person against it. An honest waiver is worth more than a false tick, and"
             echo "an empty cell is neither."
-            echo "A line that cannot be ticked is waived in writing by a named person. An honest waiver is worth more than a false tick."
+            exit 1
+          fi
+
+          # Then every Verification row's EVIDENCE cell specifically. The check above only fires when the
+          # verification cell is blank too, so `| Rollback tested | verified | |` passed it: the word
+          # "verified" with nothing behind it, which is precisely what the third column exists to prevent
+          # and what the template, docs/03-delivery.md and docs/18-outcomes.md all name in prose. It
+          # caught the lazy filer and waved the dishonest one through, which is inverted. Found by
+          # turning an outside standard's exposure-grading lens back on this file, and confirmed by
+          # running it: the break-it case in docs/09 that prescribes "one row's evidence column left
+          # blank, confirm it still refuses" went green.
+          # Table shape is fixed by docs/08-templates.md: | Item | How it was verified | Evidence |
+          BAD=$(awk -F'|' '
+            /^## Verification/ { inv = 1; next }
+            /^## /             { inv = 0 }
+            inv && /^\|/ {
+              if ($0 ~ /^\|[[:space:]]*-+/)              next   # the --- separator
+              if ($2 ~ /^[[:space:]]*Item[[:space:]]*$/) next   # the header row
+              rows++
+              ev = $4; gsub(/[[:space:]]/, "", ev)
+              if (ev == "") print "  " $0
+            }
+            END { if (rows == 0) print "  (no Verification rows found — has the section been renamed or removed?)" }
+          ' "$F")
+
+          if [ -n "$BAD" ]; then
+            echo "::error::$F has Verification rows with an empty Evidence column."
+            printf '%s\n' "$BAD"
+            echo ""
+            echo "A word in the middle column is a claim; the third column is what makes it checkable."
+            echo "Name the artefact — a test name, a screenshot path, a query output, a run URL. If a line"
+            echo "genuinely could not be verified, waive it in writing with a named person against it."
+            echo "A waiver is a decision. An empty cell is nobody having made one."
             exit 1
           fi
 
@@ -449,11 +486,27 @@ this file, what you actually want is a redeploy to dev from the current commit, 
 
 **Why production refuses an unsigned release.** The checklist step is the only place in the pipeline where a
 human's written statement is a merge-equivalent gate. It requires `docs/releases/<build_id>.md` to exist —
-copied from the template in [templates](08-templates.md) — and it rejects any table row whose verification or
-evidence column is blank. Blank means nobody checked, and the template's own instruction is that a line you
-cannot tick gets waived in writing by a named person. The check is crude on purpose: it matches empty cells,
-not content, so it cannot tell a real evidence link from the word "yes". It catches the one failure it was
-built for, which is a checklist filed with the awkward rows left empty.
+copied from the template in [templates](08-templates.md) — and it makes two passes. First, any table row with
+*both* the verification and evidence columns blank is refused, anywhere in the file. Then, inside the
+`## Verification` section specifically, **every row's evidence cell must be non-empty**, and a missing
+`## Verification` section counts as a failure rather than as nothing to check.
+
+The check is crude on purpose: it matches empty cells, not content, so it cannot tell a real evidence link
+from the word "yes". The second pass is where that crudeness boundary now sits — a claim in the middle column
+with an empty third column is refused, and what the third column *says* is still not parsed. A written waiver
+makes a perfectly good evidence cell, because a waiver is a decision and an empty cell is nobody having made
+one.
+
+**This gate was wrong for its whole life until 6 August 2026, and the fix is worth reading as a warning.** The
+original was one regex requiring four pipes with cells two and three both whitespace-only — an AND, where
+every sentence describing it said OR. So `| Rollback tested | verified | |` passed the production gate: the
+word "verified" with nothing behind it, which is exactly the failure the third column exists to prevent and
+which [delivery](03-delivery.md), [outcomes](18-outcomes.md) and [the first run](19-first-run.md) all name in
+prose. It caught the careless filer and waved the dishonest one through, which is inverted. Worse, break-it
+case 6 below prescribes *"add the file with one row's evidence column left blank, and confirm it still
+refuses"* — followed literally on an otherwise-complete file, that went green, so the one prescribed proof of
+the last gate before production exposure could never have reproduced. Two tier-3 sentences knew about the
+failure; the tier-1 gate that claimed to catch it did not.
 
 **Two known weaknesses, stated plainly.** First, the download step names no deploy run: `run-id` falls back
 to `github.run_id`, which is the promote run itself, so on GitHub's default artifact scoping it finds nothing
@@ -990,8 +1043,10 @@ configured, does nothing, and reports nothing.
 
 **6. Promotion, both halves.** Push a trivial change to `main` and watch `deploy` produce a build id and put
 it in dev. Then dispatch `promote` to production with that id and *no* `docs/releases/<id>.md`, and confirm it
-refuses. Add the file with one row's evidence column left blank, and confirm it still refuses. Fill the row,
-and confirm it goes through the environment's reviewer prompt. Three runs, one green.
+refuses. Add the file with one row's evidence column left blank — leaving the middle column FILLED, because that
+is the shape the gate used to miss — and confirm it still refuses. Fill the row, and confirm it goes through
+the environment's reviewer prompt. Three runs, one green. `scripts/break-it.mjs promote` covers the same
+three cases offline in a second, and should be run first.
 
 ## Recording it
 

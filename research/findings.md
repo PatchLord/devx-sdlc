@@ -56,6 +56,40 @@ only changes how the manual reads is an edit, not a finding.
 | 39 | Build the autonomous runner | my own proposal, refuted by me | **deferred** | It removes a person typing two commands, about thirty seconds per ticket, and cannot be validated because nothing has run on a host. Ranked fourth behind agent-produced evidence (built), graded and routed escalations (cheap), and the escalation log. A runner driving an unproven loop would industrialise whatever is currently wrong. |
 | 40 | A tuned reviewer with written criteria is not a generic bot | Anthropic, Mar 2026 | **accepted** | Under 1% of findings marked incorrect over months of production use, against the generic-bot studies we cite where four bots never agreed on a finding. The difference is written criteria in a `REVIEW.md` the team owns, separate from the context file. Worth adopting. |
 | 41 | Big pull requests are where the defects are | Anthropic, Mar 2026 | **corroborates** | On PRs over 1,000 lines, 84% receive findings, averaging 7.5 issues. Independent support for the size ceiling from the defect side rather than the attention side. |
+| 42 | Red-on-base: re-run a bug fix's new test at the base commit, require failure, store the proof | ADS-1 | **refuted as an edit** | The principle is right and we hold a weaker version at tier 2. The mechanism needs a machine-readable test report per harness plus an N/A disposition scheme, and `verify.mjs` hard-fails on a missing GATES script so a seventh entry reddens every repo until each wires a reporter. The selector (`fix:`) is author-declared behind a `--no-verify`-able hook, and a new test referencing a symbol absent at base fails by compile error — the one-line bypass. Recorded as experiment E6, not built. |
+| 43 | Red-on-stub: revert new implementation hunks, require AC tests to fail | ADS-1 | **refuted** | ADS-1's own correction C1 destroys it: no 'new body' to stub when editing existing functions, and inapplicable to Liquid, config, IaC, SQL and JSON diffs; where reverting breaks the compile, every test "fails" and the gate reports success for tests asserting nothing. Our stack includes a Shopify theme with no instrumentation at all. |
+| 44 | Consequence class derived from a path manifest, recomputed at PR time, auto-raised by CI | ADS-1 | **refuted as an edit, kept as a question** | Sharper than our depth grade, which a human sets once in the SOW. But ADS-1 concedes the design "rests on protected-paths.yml being COMPLETE", and a checkout-adjacent module nobody listed ships at the lowest class. It trades a wrong-in-both-directions human guess for a silent gap. See open question D10. |
+| 45 | Four-point reviewer attestation, validated complete by CI | ADS-1 | **refuted** | ADS-1 mandates it at line 322 and demolishes it at line 900: four checkboxes are a four-second ritual that cannot be falsified. We already hold the position — a genuine approval and a rubber stamp are byte-identical on the host (11-measurement). Enforcing shape as a substitute for evidence is the thing finding 47 fixes. |
+| 46 | A published review-capacity ceiling in evidence-weighted review units | ADS-1 | **refuted** | Conceded broken in the same file: every weighting input is produced by the author's own artefacts, so declaring `in scope: src/**` guarantees empty drift and prices the hardest diff as trivial. Its own counter needs call-graph fan-out analysis — a new product. Our dumber instrument (300/10 target, 400/20 ceiling) is gameable by splitting; theirs by typing one glob. |
+| 47 | The production release-checklist gate enforces shape, not evidence | ADS-1's exposure lens, turned on our own file | **accepted** | `promote.yml`'s regex required cells 2 AND 3 both blank, while three of our documents said OR. So `\| Rollback tested \| verified \| \|` passed the production gate — a claim with nothing behind it. Verified by running it, including the break-it case in 09 that prescribed exactly this test and went green. Now a per-row Evidence check over `## Verification`, a missing section counts as failing, three break-it cases, mutation-tested. |
+
+### Round 8 — ADS-1 (6 August 2026)
+
+An outside standard, ~21,800 words, arrived as a rival: eight principles, nine gates, and its own hostile
+review printed inside it. Five independent lenses produced **34 candidates**; adversarial refutation left
+**one**, and it was not a transplant — it came from turning ADS-1's exposure-grading lens back on our own
+`promote.yml` and finding the last tier-1 gate before production did not enforce the predicate its own error
+message claimed.
+
+That ratio is the finding about the round. ADS-1 is better written than our documents on cost, latency and
+self-attack, and it is a **source to mine rather than a rival**: it has no enforcement-tier concept, so a
+four-checkbox ritual sits in the same numbered gate list as its strongest mechanism — and its own reviewer
+supplies the consequence, that "the cheap ceremonial gates ship immediately because they are trivial, the
+load-bearing ones ship broken or never". Two of its most distinctive mechanisms are conceded broken in the
+same file.
+
+Where it is ahead of us and we could not act yet: it hard-caps serial pre-code human approvals at 1/2/3 and
+declares that exceeding the cap is **a defect in the standard, not a discipline failure in the engineer** —
+our latency argument with an actual number. It pre-commits each gate's author to deleting their own gate if
+escape-point data never implicates it, the only shrinking mechanism either document has. And its per-gate
+"how this will be gamed" section attacks six of its own gates in the voice of a compliant employee, which is
+a form worth stealing.
+
+Where we are ahead, and it should mine us: **it has no perimeter check.** It pins gate-bearing config with
+CODEOWNERS and sets branch protection once during rollout, but nothing reads the host back and fails when it
+drifts — so all nine of its gates live where an agent can reach them. We also mandate one monorepo, which
+dissolves its cross-repo classification hole, and we already put named third-party AI processing with written
+client permission in the SOW, which is its own missing-category #1.
 
 ## Where accepted findings have actually come from
 
