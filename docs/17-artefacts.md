@@ -10,17 +10,29 @@ The stages are in [before the build](02-before-build.md) and the per-ticket proc
 ## The chain
 
 ```
-  SOW ──▶ PRD ──▶ TDD ──▶ contracts ──▶ features ──▶ tickets ──▶ spec ──▶ code
-   │       │       │          │            │            │          │
-   │       │       │          │            │            │          └── written at development
-   │       │       │          │            │            │              time, never in advance
-   │       │       │          │            │            └── one branch, one PR, under 300 lines
-   │       │       │          │            └── a TDD section. big, meaningful, demo-able
-   │       │       │          └── shared surfaces, fixed before anything builds on them
-   │       │       └── every client question closed. LIVING.
-   │       └── what and why, for a phase
-   └── commercial frame, and the depth level
+  BRD ──▶ SOW ──▶ PRD ──▶ TDD ──▶ contracts ──▶ features ──▶ tickets ──▶ spec ──▶ code
+   │       │       │       │          │            │            │          │
+   │       │       │       │          │            │            │          └── written at development
+   │       │       │       │          │            │            │              time, never in advance
+   │       │       │       │          │            │            └── one branch, one PR, under 300 lines
+   │       │       │       │          │            └── a TDD section. big, meaningful, demo-able
+   │       │       │       │          └── shared surfaces, fixed before anything builds on them
+   │       │       │       └── every client question closed. LIVING.
+   │       │       └── what and why, for a phase
+   │       └── commercial frame, and the depth level
+   └── THEIRS, not ours. The business problem, in their words
 ```
+
+**The BRD is the client's document and it arrives imperfect.** It is not our artefact and we do not tidy it:
+it will be vague where they have not thought something through, it will contain a contradiction between two
+things they want, and it will usually ask for at least one thing that is a bad idea. Those three properties
+are the *input* to Solutioning, not defects to be corrected before work starts — the SOW's job is to surface
+them, and a BRD with no problems in it means somebody has already rewritten the client's thinking into ours.
+
+Some engagements arrive with no BRD at all, only a conversation. Then the first thing Solutioning produces is
+a written statement of what we heard, sent back for the client to correct. Either way, **the SOW may not be
+the first written record of what they asked for** — if it is, there is nothing to check the SOW against, and
+every later argument about scope becomes an argument about memory.
 
 ## The rule that settles most arguments
 
@@ -36,6 +48,7 @@ A TDD describes the system. When it stops matching the system, it is wrong and g
 
 | Artefact | Owner | Drafted by | State | Notes |
 |---|---|---|---|---|
+| **BRD** | the client | the client | frozen, theirs | The business problem in their words. Arrives imperfect and stays that way |
 | **SOW** | practitioner / OM, tech lead signs | people | frozen | Carries the depth level and what the client was told about which checks exist |
 | **PRD** | tech lead or CSM | people | frozen | Changes go through the CSM, because they change what the client accepts |
 | **TDD** | tech lead | agent drafts, developer interrogates | **living** | Its job is closing questions, not documentation |
@@ -46,6 +59,7 @@ A TDD describes the system. When it stops matching the system, it is wrong and g
 | **Spec** | the developer | explore agent | **frozen at approval** | Branch's first commit, ancestor of every implementation commit |
 | **Decision records** | whoever decided | either | append-only | Superseded, never corrected |
 | **Release checklist** | tech lead | people | one per release | Three columns, and the third is not optional |
+| **Discovery meeting notes** | delivery lead | people | frozen, append a correction | Where the BRD's contradictions surface. Carries the agreed decision-maker and response time |
 | **Escalation & defect log** | the named weekly person | agent appends escalations, a script appends the rest | append-only, rows close | `log/`. Only reader is the weekly hour |
 
 ## Why there is no learnings document
