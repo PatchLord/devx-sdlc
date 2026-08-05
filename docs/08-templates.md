@@ -506,6 +506,31 @@ A standard nobody enforces is worse than no standard, because it lets everyone b
 | ☐ | Timezones explicit. Store UTC, convert at the edge, never rely on server locale | **2** |
 | ☐ | Migrations expand before they contract, and are reversible or documented as one-way | **1** — CI applies them from scratch and onto main's schema |
 
+## Anything that writes to a database it did not create
+
+| | Rule | Tier |
+|---|---|---|
+| ☐ | Every dev-only or destructive script refuses a target it was not pointed at deliberately: a protected `APP_ENV`/`NODE_ENV`, or a database host the project has not declared local. It refuses an absent connection string rather than guessing, takes its opt-out from a named env var that IaC sets for one environment only, and prints the target it accepted | **1** |
+| ☐ | The check reads the connection string the command will *actually* use — with a pooler, `migrate reset` and `db push` use the direct URL, not the pooled one | **1** |
+| ☐ | The test suite refuses a deployed environment's **server**, not merely its schema. Assert it in the per-worker setup file, not only where the runner builds its config, so a regressed `env` block fails loudly | **1** |
+| ☐ | A guard whose job is to refuse is tested by spawning the real entry point with a scrubbed environment and a host that cannot resolve — so a **deleted** guard fails instead of quietly connecting | **1** |
+
+Which hosts count as local is project-specific: record them under "Project-specific" below. Where local
+development does not reach the database over loopback, say so there and name what replaces the host rule —
+otherwise every developer sets the opt-out permanently in `.env` on day one and only the `APP_ENV` half
+survives.
+
+**This is on the list because of a live incident, not a blog post.** On a client project a dev seed's
+delete-then-recreate of access grants emptied `access_grants` on the dev database. The only thing standing
+between that same code path and production was a comment saying "NOT for prod" and one Terraform ternary
+(`RUN_SEED = environment == "dev"`) — so one mistyped container environment variable was enough. Publicly
+reported incidents match the shape: a `DATABASE_PUBLIC_URL` believed to be a demo environment was
+production, followed by a forced reset and a demo seed, with backups not scheduled.
+
+Note what this rule reaches that the credential-absence rule does not. "No session holds production
+credentials" is sound and it says nothing about a script running *inside* a deployed container, which holds
+that credential by design because our own infrastructure gave it one.
+
 ## When things fail
 
 | | Rule | Tier |
@@ -520,10 +545,22 @@ A standard nobody enforces is worse than no standard, because it lets everyone b
 | | Rule | Tier |
 |---|---|---|
 | ☐ | Authorisation checked, not only authentication. Being logged in is not permission | **2** — and the highest-value line in this file |
+| ☐ | Any path that substitutes for authentication — dev bypass, impersonation, a seeded session — is gated on an explicit **allow-list** of environment names, never a deny-list: unset or unknown means off. On any environment that is deployed it needs a held secret, not a header alone | **1** where such a path exists — the artefact is a test asserting the unset environment is disabled, and one naming the deployed-dev case; **n/a** otherwise |
 | ☐ | No personal data in logs. Stripped before it leaves the application, not in the log pipeline | **1** where a field allowlist exists, **2** otherwise |
 | ☐ | Secrets from the environment. Never in code, never in a fixture, never in a test | **1** — `scan-secrets.mjs`, and host push protection |
 | ☐ | Rate limits on anything publicly reachable | **2** |
 | ☐ | Dependencies with known criticals do not stay open | **1** — `scan.yml`, daily |
+
+**Why the bypass line carries two clauses.** The allow-list closes only unset and unknown values. A live
+project set its dev opt-ins from infrastructure "for the dev environment only" and then deployed that
+environment to a container app — so on that host `dev` was *in* the allow-list, and a bare header minted a
+principal with no secret required. A checklist ticked at the allow-list and stopped has not asked the
+question that matters.
+
+And the variable itself may not be a trust boundary at all. A published advisory documents `NODE_ENV` being
+**inlined to `"development"` by the bundler** in a production build, so a block guarded by
+`if (process.env.NODE_ENV !== 'production')` ran in production. An allow-list on a build-time-substitutable
+value fails the same way as a deny-list.
 
 ## Anything with an interface
 
@@ -570,6 +607,7 @@ decoration.
 - **Data retention:** ___ , and what gets deleted on request: ___
 - **Compliance obligations:** ___ (PCI, GDPR, sector-specific)
 - **The canonical implementations for this codebase:** HTTP ___ , async ___ , dates ___ , money ___
+- **Hosts that count as local for destructive scripts:** ___
 - **What we deliberately do not do here, and why:** ___
 
 ## What this file cannot do

@@ -28,23 +28,20 @@ done
 STALE=$(grep -lE '\b(part|section) (1[0-5]|[1-9])\b' docs/*.md 2>/dev/null | tr '\n' ' ')
 [ -z "$STALE" ] && say "no 'part N' references" "ok" || say "no 'part N' references" "check: $STALE"
 
-# 4. every starter file inlined exactly once across the set
+# 4. every starter file inlined exactly once, and inlined CURRENT
+#
+# This used to probe a single line, which passed while an inlined copy was stale: the probe line had not
+# changed, so a drifted body was invisible. Since the docs inline each file verbatim, the honest check is
+# whether the doc contains the file's ENTIRE body. Found by editing three starter files and watching the
+# old version of this check stay green.
 if [ -d "$STARTER" ]; then
-  N=0; PROBLEM=""
-  while IFS= read -r src; do
-    rel=${src#"$STARTER"/}
-    # tasks/board.html is generated from tasks/board.md by scripts/board.mjs. Inlining a generated
-    # file would mean maintaining a copy of a derivative, which is the drift this whole design avoids.
-    case "$rel" in .git/*|*.gitkeep|tasks/board.html) continue ;; esac
-    N=$((N+1))
-    probe=$(awk 'length($0)>28' "$src" | sed -n '2p')
-    [ -z "$probe" ] && probe=$(awk 'length($0)>16' "$src" | sed -n '1p')
-    [ -z "$probe" ] && continue
-    hits=$(grep -Fl "$probe" docs/*.md 2>/dev/null | wc -l | tr -d ' ')
-    [ "$hits" -eq 1 ] || PROBLEM="$PROBLEM $rel($hits)"
-  done < <(find "$STARTER" -type f -not -path '*/.git/*')
-  [ -z "$PROBLEM" ] && say "each starter file inlined once" "ok ($N files)" \
-                    || { say "each starter file inlined once" "NOT ONCE:$PROBLEM"; FAIL=1; }
+  RESULT=$(STARTER="$STARTER" python3 scripts/check-inlines.py)
+  N=${RESULT%%|*}; REST=${RESULT#*|}; STALE=${REST%%|*}; NOTONCE=${REST#*|}
+  if [ -n "$STALE" ] || [ -n "$NOTONCE" ]; then
+    say "starter files inlined once, current" "STALE:$STALE NOT-ONCE:$NOTONCE"; FAIL=1
+  else
+    say "starter files inlined once, current" "ok ($N files)"
+  fi
 fi
 
 # 5. figures trace to the sources file

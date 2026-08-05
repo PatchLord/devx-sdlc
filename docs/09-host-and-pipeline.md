@@ -931,6 +931,52 @@ if (!only || only === "size") {
   });
 }
 
+// ═══ promote.yml — the release checklist ════════════════════════════════════════════════════════════
+// The only place in the pipeline where a human's written statement is a merge-equivalent gate, which
+// makes it the one most worth testing. Its original check fired only when BOTH the verification and
+// evidence cells were blank, so it caught the lazy filer and passed the dishonest one.
+if (!only || only === "promote") {
+  const checklist = extractRun("promote.yml", "Production requires a signed release checklist");
+  const HEAD = `# Release 0123456789ab\n\n## What is in it\n\n| Ticket | What it does | Evidence |\n| --- | --- | --- |\n| PULSE-1 | returns form | PR #12 |\n\n## Verification\n\n| Item | How it was verified | Evidence |\n| --- | --- | --- |\n`;
+  const TAIL = `\n## What this release does not verify\n\nSafari.\n`;
+  const release = (rows) => ({ "docs/releases/0123456789ab.md": HEAD + rows + TAIL });
+  const promote = (name, rows, expect, contains) => check(name, {
+    ...checklist, env: { BUILD_ID: "0123456789ab" }, expect, contains,
+    repo: build({ commits: [{ files: release(rows), message: "docs: release" }] }),
+  });
+
+  check("promote: no release file at all is refused", {
+    ...checklist, env: { BUILD_ID: "0123456789ab" }, expect: "fail", contains: "is missing",
+    repo: build({ commits: [{ files: { "src/x.ts": "x\n" }, message: "feat: x" }] }),
+  });
+
+  promote("promote: a row with both cells blank is refused",
+    "| Rollback tested, not assumed | | |\n", "fail", "both the verification and evidence columns empty");
+
+  // The defect. This shape passed the production gate: a claim with nothing behind it.
+  promote("promote: REGRESSION — 'verified' with an empty Evidence cell is refused",
+    "| Rollback tested, not assumed | verified | restore log |\n| Migrations run forward on a copy of prod data | verified | |\n",
+    "fail", "empty Evidence column");
+
+  promote("promote: 'n/a' with an empty Evidence cell is refused too",
+    "| Rollback tested, not assumed | n/a | |\n", "fail", "empty Evidence column");
+
+  promote("promote: every Verification row carrying evidence goes through",
+    "| Rollback tested, not assumed | restored to staging | restore-2026-08-06.log |\n| Migrations run forward on a copy of prod data | ran on a dump | run #4412 |\n",
+    "pass");
+
+  // A waiver is a legitimate outcome and must not be blocked — it is a decision, unlike an empty cell.
+  promote("promote: a written waiver in the Evidence cell is accepted",
+    "| Rollback tested, not assumed | waived | waived — Jaimin, restore drill deferred to Monday |\n",
+    "pass");
+
+  // Deleting the section would otherwise be the cheapest evasion of the rule above.
+  check("promote: removing the Verification section entirely is refused", {
+    ...checklist, env: { BUILD_ID: "0123456789ab" }, expect: "fail", contains: "no Verification rows",
+    repo: build({ commits: [{ files: { "docs/releases/0123456789ab.md": "# Release\n\n## What is in it\n\n| A | B | C |\n| --- | --- | --- |\n| x | y | z |\n" }, message: "docs: release" }] }),
+  });
+}
+
 // ── report ──────────────────────────────────────────────────────────────────────────────────────────
 const w = Math.max(...results.map((r) => r.name.length));
 console.log("");

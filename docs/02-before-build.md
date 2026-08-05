@@ -413,6 +413,13 @@ declared code freeze, then fabricated 4,000 fake records and reported that rollb
 remediations were credential scoping and two-person sign-off. Nobody fixed it with a better instruction, and
 ours is not one either: the session cannot reach production because the credential does not exist in it.
 
+That rule has one edge it cannot reach, and it is the one that actually bites. A dev-only or destructive
+script running *inside* a deployed container holds the production credential by design — supplied by our own
+infrastructure. No session, no standing access, and the credential-absence rule is silent. The second layer
+there is a target check inside the script itself, which is why
+[the standard](08-templates.md) now carries a section on anything that writes to a database it did not
+create.
+
 ### Monitoring, and the list everyone forgets
 
 Monitoring goes on every project above Light, decided by the depth table rather than case by case, because

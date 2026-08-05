@@ -266,6 +266,23 @@ look them up.
 
 No branch, no commit, no pull request without a ticket. The branch is named after it: `PULSE-123-short-slug`.
 
+**The tickets live in `tasks/board.md`, in this repository.** That file is the tracker, not a copy of one.
+Before starting, read the entry for your ticket — it carries what is already in place, what was already
+found and verified, and what a previous session deliberately left alone. Starting without reading it means
+rediscovering something somebody already paid for.
+
+Status is derived, never typed: a branch exists, a pull request is open, a merge happened. When a ticket
+closes, its entry gets a **Resolution** saying what changed and what did not.
+
+**Keep the board current as you go, not at the end.** Move the state to `in progress` when you start, record
+findings in the entry as you verify them, and write the Resolution before you open the pull request. A board
+updated at the end is a board written from memory.
+
+`tasks/board.html` is the readable view — what is running, blocked, open and done. **It is generated. Never
+edit it, and never edit the index table at the top of `board.md` either.** Both are rebuilt from the entries
+by `scripts/board.mjs`, a hook regenerates them whenever you write a file, and CI fails when they do not
+match the source. So there is nothing to remember here: change `board.md` and the view follows.
+
 ## The design document is the source of truth
 
 `docs/design/` holds it. When the code and the design document disagree, **say so** — do not quietly
@@ -387,6 +404,29 @@ file as friction that removes the easy mistake, and nothing more.
       "Edit(./.claude/**)",
       "Edit(./docs/design/criteria/**)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/board.mjs --index && node scripts/board.mjs --html"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/board.mjs --index && node scripts/board.mjs --html && node scripts/board.mjs --check"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -431,7 +471,10 @@ You read and you write one file. You do not implement.
 
 ## What you read
 
-1. The ticket — its description and its acceptance criteria.
+1. The ticket — its entry in `tasks/board.md`, its description and its acceptance criteria. Read the whole
+   entry, including **Findings** and any **Resolution** on related entries: verified findings and
+   deliberate omissions recorded there are the cheapest context you will get, and re-deriving them is the
+   most common way a session wastes its first hour.
 2. `docs/design/` — the design document for this phase. This is the source of truth.
 3. The code as it actually is now. Not as the design document says it is.
 4. `docs/decisions/` — why things are the way they are.
@@ -740,7 +783,7 @@ leaves a check behind.
 
 `.claude/skills/build-loop/SKILL.md`
 
-`````markdown
+````markdown
 ---
 name: build-loop
 description: Use when starting, implementing, reviewing or finishing any ticket in this repository — the seven-step loop from ticket to merge, including what each step must produce before the next one may begin.
@@ -765,6 +808,11 @@ One ticket, one branch, one pull request, one merge. Seven steps, in order.
 ## 1 — Ticket
 
 Sized to the review, not to the clock: **≤300 lines, ≤10 files**. CI fails above 400 and 20.
+
+The ticket is an entry in `tasks/board.md` — that file is the tracker. Read the whole entry before anything
+else: its **Findings** and any **Resolution** on related entries are the cheapest context available, and
+re-deriving them is the most common way a session wastes its first hour. Set the state to `in progress`.
+`spec.yml` refuses a pull request whose ticket has no entry.
 
 If it cannot be described in one or two sentences without "and", it is more than one ticket. Split it
 before you start, not when the diff gets large.
@@ -831,6 +879,11 @@ The pull request states what was learned that was not in the design document, an
 a fixture, a decision record, a proposed criterion, a rule in `CLAUDE.md`, or a note for the CSM. And it
 states what this does not verify.
 
+The board entry gets its **Resolution** — what changed, what you deliberately left alone, and what is
+still open. `spec.yml` refuses a `DONE` entry that has none, because a ticket closed with only a list of
+what shipped throws away the half that helps whoever comes next. Verified adjacent work that was out of
+scope becomes its own new entry rather than riding along in this diff.
+
 Then merge. Status is derived from that merge, never written by hand.
 
 ## The rule that makes this converge
@@ -838,7 +891,7 @@ Then merge. Status is derived from that merge, never written by hand.
 **Every defect a person found leaves a check behind.** If review caught it and nothing was added, review
 will catch it again next month. That is the difference between a process that improves and one that just
 runs.
-`````
+````
 
 ## `CODEOWNERS`
 
@@ -932,8 +985,12 @@ template whose reasoning has been stripped out gets filled in with the word "ver
 ## What we learned that was not in the design document
 
 <!-- Each item names where it landed: a test · a fixture · a decision record ·
-     the design document · a rule in CLAUDE.md · the CSM.
-     Empty is a valid answer. "Nothing" after two days is worth a second look. -->
+     the design document · a rule in CLAUDE.md · a new entry in tasks/board.md · the CSM.
+     Empty is a valid answer. "Nothing" after two days is worth a second look.
+
+     Verified adjacent work that is genuinely out of scope goes to tasks/board.md as its own
+     entry, with its findings. Not into this pull request, and not into a review comment
+     that nobody will find again. -->
 
 ## What this does not verify
 

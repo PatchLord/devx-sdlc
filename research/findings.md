@@ -90,6 +90,38 @@ CODEOWNERS and sets branch protection once during rollout, but nothing reads the
 drifts — so all nine of its gates live where an agent can reach them. We also mandate one monorepo, which
 dissolves its cross-repo classification hole, and we already put named third-party AI processing with written
 client permission in the SOW, which is its own missing-category #1.
+| 48 | `verify.mjs` runs `tests` before `build` | arvind-sbd | **accepted** | Where a workspace package is consumed as compiled `dist` — the topology `02-before-build` mandates — the tests import the previous build and pass for the wrong reason. Nothing in `verify.mjs` short-circuits, so the order was free to fix. That repo has had it right in CI for 250 commits and *still* needed a prose rule for the inner loop, so `10-stack-wiring` now prescribes a topological `dependsOn` too. No published incident attributes a defect to this; the doc says so. |
+| 49 | "No session holds production credentials" closes a class it cannot reach | arvind-sbd | **accepted** | A dev-only or destructive script running *inside* a deployed container holds that credential by design, supplied by our own infrastructure. Their guard file records the incident: a dev seed's delete-then-recreate emptied `access_grants`, with a comment and one Terraform ternary as the only control. |
+| 50 | Destructive scripts must refuse their own target | arvind-sbd | **accepted** | New `production-ready.md` section, four tier-1 rows: refuse a protected `APP_ENV`, refuse an undeclared host, refuse an absent connection string rather than guessing, read the URL the command will *actually* use, and test the guard by spawning the real entry point so a **deleted** guard fails. Public 2026 incidents match the shape exactly. |
+| 51 | Auth-substitute paths need an allow-list **and** a held secret | arvind-sbd | **accepted** | Their deny-list version shipped under a docstring claiming it "can never be switched on in prod even by mistake", survived two further commits, and was fixed 16 days later. And the allow-list alone is not enough: their own IaC deploys the allow-listed name to a container app, where a bare header minted a principal. A published advisory adds the sharper case — `NODE_ENV` inlined to `"development"` by a bundler, so the guarded block ran in production. |
+| 52 | `gates.yml` protects checks by enumerating three script names | arvind-sbd | **refuted** | `14-limits.md` already names this hole in the same terms and prices it deliberately. The proposed fixes self-defeat: `scripts/*.mjs` fails the commit adding a non-check script, and an added-`"off"` grep fails the commit introducing any lint config. What was real was maintenance: the list omitted Biome and Ruff, which our live projects use, and `board.mjs`, which now gates. Added. |
+| 53 | The pilot's "0 of 7" measures distance from the work, not prose | arvind-sbd | **refuted** | The load-bearing claim is false. Their per-feature DAG board was out of sync for **fifteen days**, peak eight task IDs, reconciled by a batch re-bake — while rendering "56 done" on screen against a `tasks.md` at 64. So the proposed remedy, "make it visible in a rendered artefact", is the thing that failed. |
+| 54 | `perimeter.yml`'s warning that `bypass_actors` is unreadable | arvind-sbd | **refuted** | The API claim is right; the consequence is refuted by the repo offered as evidence. Its ruleset covers `~DEFAULT_BRANCH` and `refs/heads/dev` in one object, so `perimeter.yml` with `main` hardcoded reads the same object and fails roughly ten assertions — it catches that repo's real hole loudly. |
+| 55 | "Records are never updated" contradicts our own spec check | arvind-sbd | **refuted as proposed, accepted as a copy-edit** | Their `spec.md` has twelve post-initial commits deleting ~173 lines including whole requirement blocks, so the repo falsifies the stricter rule rather than supporting it. But our own table did contradict itself, so 17 now says "never *quietly* updated" and explains why `spec.yml` warns rather than fails. |
+| 56 | Our own inline check passed while nine copies were stale | found while applying the above | **accepted** | `check-docs.sh` probed one line per starter file, so a drifted body was invisible if that line had not changed. Replaced with whole-body containment in `scripts/check-inlines.py`, which immediately found **nine** stale copies — `CLAUDE.md`, `explore.md`, `settings.json`, `build-loop`, the PR template, `spec.yml`, `verify.yml`, `lefthook.yml` and `break-it.mjs`. All resynced by scoring every fenced block against the file body and asserting one unambiguous winner. |
+
+### Round 9 — a live spec-kit project (6 August 2026)
+
+`devx-commerce/arvind-sbd`, dev branch, 250 commits of real client work. Unlike ADS-1 this was **evidence
+rather than argument**, so the burden was inverted: our standard is written and unproven, theirs has shipped
+features, and where they differed the burden sat on our document. Six lenses produced **45 candidates**;
+four survived.
+
+The verdict that matters: **the rules that survived 250 commits are the ones written as code with the
+causing incident in the file. The rules that drifted are the ones written as documents to be maintained.**
+Their fail-closed database guards hold and fail a build today. Their per-feature DAG board drifted for
+fifteen days while displaying a stale count, and their plan documents became — in their own words —
+"executable recipes… stale code, a regression generator". That is our tier table confirmed by an outside
+project, and simultaneously an indictment of our artefact list, because we had no tier-1 form for the one
+hazard they kept paying for: **a process that already holds the credential.**
+
+Where they are behind us, and it is worth knowing before anyone treats spec-kit as sufficient: no
+`CODEOWNERS` file at all, a ruleset bypass actor set to `always`, **zero required status checks** so CI is
+advisory at the host tier, and ten-plus Playwright specs that no workflow invokes because the web workspace
+has no `test` script. That last one is the first time one of our rules has caught a gap in somebody else's
+repository rather than the reverse.
+
+And the round found a defect in our own tooling, which is where the last four rounds have also found things.
 
 ## Where accepted findings have actually come from
 

@@ -65,8 +65,11 @@ also greps added workflow lines for `continue-on-error: true`, `if: false` and a
 Wiring your stack means editing `scripts/verify.mjs` and `scripts/changed-line-coverage.mjs`. Those two
 files decide which gates run and what coverage threshold applies.
 
-`gates.yml`'s `is_gate_path` already names all three scripts by path, so an edit to either one inside an
-implementation commit fails the gate-mixing check. `CODEOWNERS` does not. It protects the workflows,
+`gates.yml`'s `is_gate_path` names the check scripts by path — `verify.mjs`, `scan-secrets.mjs`,
+`changed-line-coverage.mjs` and `board.mjs` — so an edit to any of them inside an implementation commit fails
+the gate-mixing check. It does not name every file under `scripts/`, and it should not: a script that gates
+nothing is ordinary code. Adding `/scripts/` to `CODEOWNERS` is deliberately broader than that list, because
+the next gate script somebody writes will be protected before anyone remembers to extend the pattern. `CODEOWNERS` does not. It protects the workflows,
 `lefthook.yml`, `CLAUDE.md`, `.claude/`, and `docs/design/criteria/`, and stops there. So today an agent
 can split the change into its own commit — satisfying `gates.yml` — and still merge a `GATES` deletion or
 a `--min 80` to `--min 0` without a second pair of eyes.
@@ -118,6 +121,27 @@ prefix them after the fact:
 
 Check it before you trust it: `grep '^SF:' coverage/lcov.info | head -3` must print paths that
 `git ls-files` would also print.
+
+**The other monorepo hazard, and gate order only half solves it.** Where a workspace package is consumed as
+compiled `dist` rather than source, the tests import the previous build unless something rebuilt it first —
+and then they pass for the wrong reason. `verify.mjs` runs `build` before `tests` for exactly this, but that
+only protects `bun run verify`. It does nothing for an agent running a single spec file mid-session, which is
+most of what happens during a ticket. So make the dependency **topological** in the task runner as well:
+a `pretest` script on the consuming package, or with turbo:
+
+```json
+{ "tasks": { "test": { "dependsOn": ["build"] } } }
+```
+
+`["^build"]` is the wrong incantation here — the caret means upstream dependencies only, so it does not
+rebuild the package under test.
+
+A live client project has had `build` before `test` in CI for 250 commits **and still needed** a prose rule
+in its `CLAUDE.md` for the inner loop: *"After editing a shared DTO or the calc kernel you must rebuild, or
+the api/web tests run against the previous build and can pass for the wrong reason."* Prose is where that
+ends up when the topology is not declared. Note also what we do not have: no published incident report, of
+any date, attributes a production defect to a suite passing against a stale `dist`. The reorder is free and
+the mechanism is certain; the *frequency* is not measured, and this document should not imply it is.
 
 **Browser obligation.** For anything with screens, the acceptance criterion names a Playwright test and a
 screenshot, and the screenshot is compared to the design frame by a person — the comparison is human, the

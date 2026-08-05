@@ -267,7 +267,9 @@ jobs:
               docs/design/criteria/*)                                                     return 0 ;;
               *jest.config*|*vitest.config*|*bunfig.toml|*pytest.ini|*.coveragerc)         return 0 ;;
               scripts/verify.mjs|scripts/scan-secrets.mjs|scripts/changed-line-coverage.mjs) return 0 ;;
+              scripts/board.mjs|scripts/break-it.mjs)                                       return 0 ;;
               *codecov.yml|*sonar-project.properties|*.eslintrc*|eslint.config.*)          return 0 ;;
+              biome.json|biome.jsonc|.biome.json|ruff.toml|.ruff.toml)                    return 0 ;;
               *) return 1 ;;
             esac
           }
@@ -548,6 +550,46 @@ jobs:
           fi
           echo "The spec is the first commit: $(git log -1 --format='%h %s' "$FIRST")"
 
+      - name: The ticket exists on the board
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          TICKET=$(printf '%s' "$BRANCH" | grep -oE '^[A-Z][A-Z0-9]+-[0-9]+')
+          BOARD=tasks/board.md
+
+          # The board is the tracker. A ticket that exists only in a branch name is not a ticket — nobody
+          # can see what it is for, what was already found, or what a previous session left alone.
+          # Deliberately bash rather than scripts/board.mjs: this runs on every pull request, and a check
+          # that needs a toolchain installed is a check that skips on the runner where it is missing.
+          if [ ! -f "$BOARD" ]; then
+            echo "::error::$BOARD is missing, so there is nowhere for a ticket to exist."
+            exit 1
+          fi
+          if ! grep -qE "^# $TICKET( |$|\b)" "$BOARD"; then
+            echo "::error::$TICKET has no entry in $BOARD."
+            echo "Add one before opening this pull request. The board is the tracker, so an entry is what"
+            echo "makes the ticket real: what it is for, what is already in place, and what was already"
+            echo "found and verified. See the shape at the top of that file."
+            exit 1
+          fi
+          echo "$TICKET is on the board: $(grep -E "^# $TICKET" "$BOARD" | head -1)"
+
+          # A DONE entry with no Resolution throws away the more useful half of the record.
+          awk -v tk="$TICKET" '
+            $0 ~ "^# "tk"( |$)" { inside = 1; next }
+            /^# [A-Z][A-Z0-9]+-[0-9]+/ { inside = 0 }
+            inside && /^\*\*State\*\*/ && /DONE/ { done = 1 }
+            inside && /^## +Resolution/ { res = 1 }
+            END {
+              if (done && !res) {
+                print "::error::"tk" is marked DONE with no \"## Resolution\" section."
+                print "Say what changed, what you deliberately left alone, and what is still open."
+                print "A ticket closed with only a list of what shipped loses the half that helps the next person."
+                exit 1
+              }
+            }' "$BOARD"
+
       - name: A spec revised mid-flight is visible
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -599,7 +641,7 @@ the host.
 
 ## verify — the stack gates, in one entry point
 
-**What it enforces.** One command, `bun run verify`, runs format, lint, types, tests, coverage and
+**What it enforces.** One command, `bun run verify`, runs format, lint, types, build, tests and coverage —
 build. CI runs it and the pre-push hook runs it, so "verified" means the same thing in both places. If
 the entry point is missing, or any of the six is unwired, it fails rather than skipping.
 
@@ -657,6 +699,12 @@ jobs:
             exit 1
           fi
 
+      # The board is the tracker and board.html is generated from it. Regenerating in memory and
+      # comparing makes staleness a fact rather than a matter of anyone's diligence — which is the only
+      # reason it is safe to keep a second representation of the same state at all.
+      - name: The board is well-formed and its view is current
+        run: node scripts/board.mjs --check
+
       - name: Verify
         run: bun run verify
 
@@ -697,9 +745,12 @@ const GATES = [
   { name: "format", script: "format:check", why: "Formatting differences make a diff unreadable, which is the same as unreviewed." },
   { name: "lint", script: "lint", why: "Catches the class of mistake nobody should spend review attention on." },
   { name: "types", script: "typecheck", why: "The cheapest check there is, and the one AI-written code most often fails at the seams." },
+  // build BEFORE tests, deliberately. In a monorepo where a workspace package is consumed as compiled
+  // dist, the tests import the previous build unless something rebuilt it first — and then they pass for
+  // the wrong reason. Nothing here short-circuits, so the order costs nothing and buys that.
+  { name: "build", script: "build", why: "In a monorepo where a workspace package is consumed as compiled dist, it must be rebuilt before the tests import it — otherwise the tests pass against the previous build. And code that does not build has not been verified, whatever the tests said." },
   { name: "tests", script: "test", why: "The evidence every acceptance criterion points at." },
   { name: "coverage", script: "test:coverage", why: "Must emit coverage/lcov.info — changed-line coverage is measured from it." },
-  { name: "build", script: "build", why: "Code that does not build has not been verified, whatever the tests said." },
 ];
 
 const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts ?? {};
@@ -1450,6 +1501,10 @@ commit-msg:
 pre-push:
   commands:
     verify: { run: "bun run verify" }
+    # Catches the board problems CI does not: duplicate ids, a blocker with no entry, a DONE entry
+    # with no Resolution on a ticket other than this branch's. A hint, so --no-verify walks past it —
+    # the one property that must hold is gated in spec.yml instead.
+    board:  { run: "node scripts/board.mjs --check" }
 ```
 
 The pre-push hook runs the same `bun run verify` that `verify.yml` runs. That is the point of having one
@@ -1582,7 +1637,7 @@ happening again.
 | Spec exists and is the first commit | required check | `spec.yml` | written |
 | The spec was *approved* | review requirement on the host | host config, asserted by `perimeter.yml` | written — no check proves it was read |
 | A spec revision is visible | warning on the pull request | `spec.yml` | written — a warning, not a gate |
-| Format, lint, types, tests, build | one entry point: hook and required check | `verify.mjs` + `verify.yml` | written — fails when unwired |
+| Format, lint, types, build, tests | one entry point: hook and required check | `verify.mjs` + `verify.yml` | written — fails when unwired |
 | 80% coverage on changed lines | threshold that fails the build | `changed-line-coverage.mjs` | written — skipped when no lcov |
 | Assertions actually assert | mutation testing | nothing | **to build** |
 | A fresh session reviews the diff | required check | `review.yml` | written — fails when unconfigured |

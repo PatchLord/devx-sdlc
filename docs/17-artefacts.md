@@ -50,6 +50,13 @@ a BRD with no problems in it means somebody has already rewritten the client's t
 
 > **A spec is a record. A TDD is a description. Records are never updated; descriptions always are.**
 
+One clarification, because our own checks are more permissive than that sentence and an outside review
+caught the gap. "Never updated" means *never quietly* updated. Revising a spec mid-flight is legitimate —
+the exploration was wrong, or the work taught you something — and `spec.yml` handles it by **warning**
+rather than failing, on the rule that the existing approval was of the earlier text and needs renewing. The
+prohibited thing is the silent edit, not the edit. Same for a frozen meeting note: a correction is appended
+under its own date, never written over what was recorded.
+
 A spec captures what was agreed before code existed. If implementation proves it wrong, that is a
 *finding* — recorded in the pull request, not edited into the spec. Editing it destroys the only evidence
 that the approval was of something specific.
@@ -68,7 +75,7 @@ A TDD describes the system. When it stops matching the system, it is wrong and g
 | **Acceptance criteria** | code owner | agent proposes | protected path | Each names the artefact that proves it |
 | **Production-ready standard** | tech lead | grows weekly | living | Project-level, not per phase. `docs/production-ready.md` |
 | **REVIEW.md** | the team | edited freely | living | Review criteria, so changing them needs no agent edit |
-| **Spec** | the developer | explore agent | **frozen at approval** | Branch's first commit, ancestor of every implementation commit |
+| **Spec** | the developer | explore agent | **frozen at approval**, revised only visibly | Branch's first commit, ancestor of every implementation commit. `spec.yml` warns when it changes after implementation began |
 | **Board** | the team | whoever raises a ticket | living, entries reach a terminal state | `tasks/board.md`. **This is the tracker**, in the repo |
 | **Decision records** | whoever decided | either | append-only | Superseded, never corrected |
 | **Release checklist** | tech lead | people | one per release | Three columns, and the third is not optional |
