@@ -1,4 +1,4 @@
-**Reviewer: Karan Iyer, tech lead, devx labs — review of SOW v0.9 DRAFT, Storefront Ops Board, Marigold Living (fictional engagement, fictional client).**
+**Reviewer: Karan Iyer, tech lead, devx labs — review of SOW v0.9 DRAFT, Ops To-Do Board, Marigold Living (fictional engagement, fictional client).**
 
 ---
 

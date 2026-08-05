@@ -1,6 +1,6 @@
 > **FICTIONAL DOCUMENT — CREATED FOR A DEMONSTRATION.** Marigold Living does not exist. Dev Rawat, Priya Menon, Anjali Sen, Farhan Qureshi, Ravi Menon, Tarun, Rakesh, Anjali (support), Kalyan Ceramics and every event, order number and rupee figure in this document are invented for a simulated engagement. Nothing here describes a real company, a real store, a real person or a real engagement. devx labs' process is real; this client is not.
 
-# Business Requirements Document — Storefront Ops Board
+# Business Requirements Document — Ops To-Do Board
 
 | | |
 |---|---|

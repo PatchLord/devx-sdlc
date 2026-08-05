@@ -1,8 +1,19 @@
-# Storefront Ops Board — a simulated engagement
+# Ops To-Do Board — a simulated engagement
 
 **Everything here is fictional.** Marigold Living does not exist. Priya Menon, Dev Rawat, Anjali Sharma and
 Karan Iyer are invented, as is every order number, date and rupee figure. The *process* is real; the client
 and the engagement are not.
+
+**What it is, in one sentence: a shared to-do list for a small team.** Add a task, assign it to a person,
+mark it done, put it back if it was not. Due dates that mean the same afternoon to everybody, and one
+reminder before something is late.
+
+Three things are bolted onto that core, and they are there to make the *process* work hard rather than to
+make the product clever: some tasks appear by themselves when the store says something changed, so there is
+a live external dependency with timeouts and retries; who may complete or reassign whose task is a real
+permission question no code can answer; and sending a reminder cannot be undone, so it is a dangerous path
+needing a second reviewer. A plain single-user to-do list would exercise none of that, and the front half of
+the process would be theatre.
 
 These are the stage 00 Solutioning artefacts, produced to demonstrate the
 [AI SDLC](https://github.com/PatchLord/devx-sdlc) end to end on a project shaped like real client work: an

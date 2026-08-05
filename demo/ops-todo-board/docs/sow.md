@@ -1,6 +1,6 @@
 **FICTIONAL DOCUMENT — CREATED FOR A DEMONSTRATION.** Marigold Living does not exist. Dev Rawat, Priya Menon, Anjali Sen, Farhan Qureshi, Ravi Menon, Tarun, Rakesh, Anjali (customer care), Kalyan Ceramics, the Leicester 3PL, Anjali Sharma, Karan Iyer, Nikhil Barve, Sneha Raut, Imran Shaikh, Deepa Kulkarni, and every date, order number and rupee figure below are invented for a simulated engagement. Third-party model-provider names are withheld deliberately: in a real SOW the provider is named in writing in Annexe A, and naming one in a fictional document would attach a real company to an invented engagement. devx labs' process is real; this client, this engagement, these prices and these dates are not.
 
-# Statement of Work — Storefront Ops Board
+# Statement of Work — Ops To-Do Board
 
 | | |
 |---|---|

@@ -1,6 +1,6 @@
 FICTIONAL DOCUMENT — CREATED FOR A DEMONSTRATION. Marigold Living does not exist. Dev Rawat, Priya Menon, Anjali Sen, Farhan Qureshi, Ravi Menon, Tarun, Rakesh, Anjali (customer care), Kalyan Ceramics, the Leicester 3PL and every order number, date and rupee figure below are invented for a simulated engagement. Anjali Sharma and Karan Iyer are invented individuals. devx labs' process is real; this client, this meeting and this engagement are not. Third-party model-provider names are withheld deliberately: in a real SOW the provider is named in writing, and in a fictional document naming one would attach a real company to an invented engagement.
 
-# Discovery meeting — Storefront Ops Board
+# Discovery meeting — Ops To-Do Board
 
 | | |
 |---|---|
