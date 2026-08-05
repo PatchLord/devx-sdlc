@@ -104,6 +104,12 @@ Handover, and [depth](05-depth.md) to decide what the project needs.
 | [18](18-outcomes.md) | What this changes against AI with no process, and what it costs | Asking a team to adopt it, or telling a client what they get |
 | [19](19-first-run.md) | Choosing the first project, and what will go wrong | Before the first run, and before the demo |
 
+A worked example of stage 00 lives in [`../demo/storefront-ops-board/`](../demo/storefront-ops-board/) — a
+fictional client, a real run of the process: a BRD, a discovery meeting, a Statement of Work, and the
+tech-lead review that **returned that SOW unsigned** over four blocking changes. Two of those changes were
+gaps in these documents rather than in the draft. Read it if you want to see what the front half of an
+engagement actually produces, including what it produces when a reviewer does their job.
+
 Research in progress — sources, adjudicated findings, open questions and experiments — lives in
 [`../research/`](../research/README.md). These documents are the conclusions; that folder is the
 working-out.
