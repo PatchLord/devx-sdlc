@@ -69,6 +69,34 @@ not decoration — they force authorisation rather than authentication, which th
 highest-value line. A plain single-user to-do app fails criterion 2 outright, and then the whole front half
 of the process is theatre.
 
+### Density, not complexity
+
+"Make it as complex as possible" is the wrong instruction and it is the one everybody reaches for. Adding
+**features** adds build time; adding **awkward requirements** adds demonstrated process. Those are different
+dials, and only the second one pays.
+
+A vehicle with fifteen screens proves less than one with four screens and six decisions nobody can make from
+the code. Judge every candidate requirement by what it *forces* — a class A escalation, a tier-1 line firing,
+a question only a person can answer — and drop anything whose only merit is being more work. Criterion 7,
+finishable, is the one that features quietly destroy.
+
+The requirements worth their cost are usually the awkward ones a client asks for late: roles and permissions
+across a shared object, dates across timezones, a notification that must not send twice, a webhook whose
+signature must be verified, a bulk action where the fourteenth item fails, an archive that needs a migration
+rather than a delete. Each of those is small to build and forces a decision, which is exactly the ratio to
+look for.
+
+### Two rules for the run itself
+
+**Do not coach the implementing agent.** If someone tells it "add a timeout here", the run demonstrates that
+person's prompting rather than the process. The agent gets the spec and the standard; what the gates catch is
+the result. Coaching is rehearsal wearing a different hat, and it produces the green run part 3 warns about.
+
+**The interface standard is complete, not beautiful.** The pilot's visible failure was broken pages and
+read-only flows presenting as writable. The answer to that is a plain, consistent interface where every flow
+actually works — not a prettier one. Boring and complete beats impressive and broken, and it is the contrast
+that a sceptical audience actually registers.
+
 ### Choose the tickets backwards from the questions
 
 Mechanism coverage is the floor. If the run is also a demonstration, go one step further and pick each ticket
