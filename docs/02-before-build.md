@@ -95,6 +95,16 @@ Four sections go in that a business document usually leaves out, because each co
 - **Named third-party AI processing, with written permission.** The client's documents and code will be sent
   to a named provider. Some organisations forbid this contractually, and finding out after signature ends
   projects.
+
+  **The permission is dated ahead of discovery, not ahead of the build.** This is the sequencing mistake a
+  simulated intake caught in its own SOW on 6 August 2026, and it is worth stating because it is invisible
+  until somebody looks for it. Discovery — reading the client's real orders to measure how their systems
+  actually behave — is the *first* thing an engagement does and it handles live customer names, emails and
+  addresses. A schedule that runs discovery in week one and drafts the data-handling note in week two has
+  the engagement touching personal data before the policy governing it exists. So the permission, and the
+  note it points at, are preconditions of the first read, and the SOW says which of its own activities
+  handle personal data and which do not. "The product does not ingest customer data" can be true of the
+  product and false of the work that precedes it.
 - **What happens after go-live.** Who fixes bugs, for how long, and how we tell them when something has gone
   wrong. If nobody is paying for support, go-live is a handover, and saying so here is cheaper than
   discovering it when the first alert fires.
@@ -105,6 +115,14 @@ that is easy to get wrong. **We list which of our checks exist on their project 
 still to build**, in three words and nothing else. *Written*: the file exists and its logic has been tested
 locally. *Proven*: it has run on a host and failed something it was supposed to fail. *To build*: it protects
 nothing today. Selling a *written* row as a guarantee is the pilot's failure with a signature under it.
+
+**And the tier language governs the whole document, not just that table.** The failure to watch for is a
+control described in one section as a mechanism and admitted in another as a habit — a client reads both
+sentences at the same strength, and the weaker one is the one you will be apologising for. The test is
+mechanical: for every protective claim in the SOW, name the artefact that demonstrates it. Where there is
+none, the sentence says what people are instructed to do rather than what the system enforces. A simulated
+intake was returned unsigned over exactly one such sentence, promising that personal data never enters a
+model prompt while an earlier section conceded there was no mechanism removing it.
 
 The practitioner and the tech lead read the finished SOW together, because the tech lead wrote half of it.
 
