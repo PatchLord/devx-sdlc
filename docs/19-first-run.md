@@ -25,18 +25,33 @@ a stage into ceremony:
 
 Three candidates, scored honestly:
 
-| | To-do with shared lists | Returns / RMA portal | Order tracking page |
-|---|---|---|---|
-| Understood instantly | yes | yes | yes |
-| A genuinely hard question | permissions — real | permissions, money, idempotency, return windows | none |
-| Touches the protected set | auth, personal data | **auth, personal data, money, refunds** | barely |
-| Natural Phase 2 | due dates, reminders | exchanges, or store credit | — |
-| Somebody types into it | yes | yes, twice — customer form and admin queue | **no — read-only** |
-| Looks like our work | **no** | **yes** | yes |
-| Finishable | yes | yes, one size bigger | yes |
+| | Generic to-do | Ops task board for a merchant | Returns / RMA portal | Order tracking |
+|---|---|---|---|---|
+| Understood instantly | yes | yes | yes | yes |
+| A genuinely hard question | only with shared lists | authorisation across teams | permissions, money, return windows | none |
+| Touches the protected set | auth, personal data | auth, personal data, migrations | **+ money, refunds** | barely |
+| A real external dependency | no | **yes — the store's API** | yes | yes |
+| An irreversible action | no | **yes — reminder emails** | yes — refunds | no |
+| Natural Phase 2 | due dates | due dates, timezones, reminders | exchanges, store credit | — |
+| Somebody types into it | yes | yes | yes, twice | **no — read-only** |
+| Looks like our work | **no** | **yes** | **yes** | yes |
+| Finishable | yes | **yes** | one size bigger | yes |
 
 **Order tracking fails on the criterion that killed the pilot** — it is read-only, and read-only work is
 exactly how a process passes while proving nothing.
+
+**A generic to-do app fails on one criterion only, and it is repairable.** The to-do part was never the
+problem; *looks like the work you sell* was. An **ops task board for a merchant's team** — tasks raised from
+real store signals like low stock or an order past its fulfilment SLA, assigned across a team, completed by a
+person — is still understood in one sentence, and it is the kind of internal tool we actually build. That one
+reframe buys an external dependency the agent must handle (timeouts, retries, a committed fixture), a real
+authorisation question (who may see and complete whose team's tasks), and in Phase 2 an irreversible action:
+**sending a reminder email is on the class A list verbatim**, which forces the stub decision to be escalated
+rather than assumed, and makes send-once idempotency something you can demonstrate rather than describe.
+
+What it does not exercise is *money is integers in the smallest unit*. That is an acceptable loss — the point
+is not to fire every tier-1 line, it is that the standard visibly bites somewhere, and authorisation is the
+line the standard itself calls its highest-value one.
 
 **A returns portal is the better vehicle.** Everybody understands returns; it is unmistakably commerce work;
 and it is loaded with questions no code can answer. Partial returns. Refund to the original payment method
@@ -53,6 +68,26 @@ escalated rather than assumed is worth more than any green check.
 not decoration — they force authorisation rather than authentication, which the standard calls its
 highest-value line. A plain single-user to-do app fails criterion 2 outright, and then the whole front half
 of the process is theatre.
+
+### Choose the tickets backwards from the questions
+
+Mechanism coverage is the floor. If the run is also a demonstration, go one step further and pick each ticket
+for **the artefact it will produce that answers a question somebody is going to ask.** Five tickets, worked
+out backwards:
+
+| # | The ticket | What it produces that answers a question |
+|---|---|---|
+| 1 | Schema, teams, authorisation. Contracts frozen first | A class A escalation and a walked code-owner review — *can the agent touch dangerous things?* |
+| 2 | Read signals from the real external system | Timeout and retry lints firing on a live dependency, and a committed fixture — *does it handle production concerns?* |
+| 3 | The write path a person uses | A screenshot against a criterion — *how do I know it is actually done?* Let this one arrive **over the ceiling** so the size gate fires and the split is on the record |
+| 4 | Phase 2: dates and timezones | A modified existing test, so the gate asymmetry fires; and a genuinely non-empty divergence field, because the Phase 1 design said nothing about timezones |
+| 5 | Phase 2: notifications | A class A irreversible action, the stub decision, and send-once idempotency — *what stops it doing something it cannot undo?* |
+
+**Run the ungoverned control on the write-path ticket**, not on the easiest one. That is where our own pilot
+failed: nine write hooks and zero buttons, the write side present at every layer except the one a human
+touches, because the gate it was given could only see reads. If an ungoverned agent reproduces that on the
+same ticket where the governed branch had to attach a screenshot of a person completing the action, the most
+persuasive exhibit in the room is the organisation's own history repeating next to the version that caught it.
 
 ## Part 2 — what will go wrong, in the order you will meet it
 
