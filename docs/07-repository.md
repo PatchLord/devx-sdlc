@@ -277,6 +277,9 @@ rediscovering something somebody already paid for.
 Status is derived, never typed: a branch exists, a pull request is open, a merge happened. When a ticket
 closes, its entry gets a **Resolution** saying what changed and what did not.
 
+The spec is the branch's first commit and **alone** in it. The board update is the **second** commit, never
+the first — they collide otherwise, and `spec.yml` rejects rather than warns.
+
 **Keep the board current as you go, not at the end.** Move the state to `in progress` when you start, record
 findings in the entry as you verify them, and write the Resolution before you open the pull request. A board
 updated at the end is a board written from memory.
@@ -814,8 +817,15 @@ Sized to the review, not to the clock: **≤300 lines, ≤10 files**. CI fails a
 
 The ticket is an entry in `tasks/board.md` — that file is the tracker. Read the whole entry before anything
 else: its **Findings** and any **Resolution** on related entries are the cheapest context available, and
-re-deriving them is the most common way a session wastes its first hour. Set the state to `in progress`.
-`spec.yml` refuses a pull request whose ticket has no entry.
+re-deriving them is the most common way a session wastes its first hour. `spec.yml` refuses a pull request
+whose ticket has no entry.
+
+**The commit order on the branch is fixed, and getting it wrong is rejected rather than warned about.**
+The spec is the first commit and it is **alone** in that commit — no board edit, no anything. Setting the
+board state to `in progress`, and the regenerated view that comes with it, is the **second** commit.
+Implementation follows. Found on a real host: putting the board entry in the first commit alongside the spec
+fails `spec.yml`, because two of our own rules — *the spec is the branch's first commit, alone* and *the
+ticket must be on the board* — collide unless they are ordered.
 
 If it cannot be described in one or two sentences without "and", it is more than one ticket. Split it
 before you start, not when the diff gets large.

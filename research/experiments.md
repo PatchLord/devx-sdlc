@@ -41,10 +41,37 @@ The harness was then mutation-tested — the substring `is_test_path` and the se
 reintroduced one at a time, and each was caught by exactly the case written for it. A suite that passes
 because it tests nothing looks identical to one that works, so this step is not optional.
 
-**Still open, and only a host can close it:** that a red check blocks a merge, that code-owner review is
-enforced, that force-pushes are refused, that stale approvals are dismissed, and that these files are valid
-Actions YAML. B1 stays open until the suite in [host and pipeline](../docs/09-host-and-pipeline.md) runs
-against a real repository.
+**The host half, 6 August 2026 — mostly closed.** Ran on a real private repository,
+`devx-commerce/sdlc-gate-proof`, on the org's self-hosted runners.
+
+| Claim | Result |
+|---|---|
+| The workflow files are valid Actions YAML | **proven** — all eleven parsed and executed |
+| A check fails loudly rather than skipping when unconfigured | **proven** three times — `perimeter` (`PERIMETER_TOKEN is not set`), `scan` (`Dependabot alerts are unavailable`), `verify` (`Not every gate is wired`) |
+| The legal path passes | **proven** — `size`, `gates`, `spec`, `red-on-base` all green on a conforming pull request |
+| `size` rejects a diff over the ceiling | **proven** — `528 lines / 4 files exceeds the ceiling of 400 lines / 20 files` |
+| `spec` rejects a branch with no ticket id | **proven** |
+| `spec` rejects a branch with no spec | **proven** |
+| `gates` rejects a gate change mixed with source | **proven** |
+| **A red required check blocks the merge button** | **proven** — `mergeStateStatus: BLOCKED` with `size` red and everything else green |
+| The checks discriminate rather than blanket-fail | **proven** — on one pull request `size` failed while `spec` and `gates` passed, each for a stated reason |
+| Code-owner review is enforced | **not proven.** `CODEOWNERS` names `@devx/tech-leads`, which **does not exist** in the org — exactly the failure the pre-mortem predicts, and it means code-owner review could never have been satisfied |
+| `perimeter` goes green once protection is set | **not proven** — needs a fine-grained `PERIMETER_TOKEN`, which only the repository owner can create |
+| The review agent runs | **not proven** — needs `ANTHROPIC_API_KEY` |
+| Force-push refusal, stale-approval dismissal | **not proven** — set in protection, not exercised |
+
+**What running it taught that no offline test could.** Two of our own rules collide: `spec.yml` requires the
+spec to be the branch's first commit *and alone in it*, and it also requires the ticket to have a board
+entry. Put the board entry in the first commit and the check rejects the branch. `break-it.mjs` could never
+have found this because it exercises each gate in isolation, and the collision is between two rules inside
+one gate. Fixed by fixing the documented order — spec alone first, board second, implementation third.
+
+**Three of my own fixtures were wrong before any of the above was trustworthy**, and it is worth recording
+because the pattern will repeat: an uncommitted edit survived a branch switch and was swept into the next
+commit by `git add -A`; a branch was created from the wrong HEAD, so its "first commit" was another branch's
+work; and `mkdir -p src` on one branch did not persist to the next, so file redirects silently failed. In
+each case the gate was right and the fixture was wrong. Use `git checkout -B <name> origin/main` rather than
+`git checkout main && git checkout -b <name>`, and check `git status --porcelain` is empty before branching.
 
 ---
 

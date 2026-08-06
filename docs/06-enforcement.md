@@ -98,6 +98,36 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Self-hosted runners are minimal and do not ship GitHub-hosted's toolset.
+      # Installed without root, so this works whether or not sudo is available.
+      - name: Ensure gh and jq are available
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            aarch64|arm64) JQ=arm64; GH=arm64 ;;
+            x86_64|amd64)  JQ=amd64; GH=amd64 ;;
+            *) echo "::error::Unsupported architecture $ARCH"; exit 1 ;;
+          esac
+
+          if ! command -v jq >/dev/null; then
+            echo "jq not present, installing jq-linux-$JQ"
+            curl -fsSL "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ"               -o "$HOME/.local/bin/jq"
+            chmod +x "$HOME/.local/bin/jq"
+          fi
+
+          if ! command -v gh >/dev/null; then
+            echo "gh not present, installing gh_2.63.2_linux_$GH"
+            curl -fsSL "https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_$GH.tar.gz"               | tar -xz -C /tmp
+            mv "/tmp/gh_2.63.2_linux_$GH/bin/gh" "$HOME/.local/bin/gh"
+          fi
+
+          jq --version && gh --version | head -1
+
       - name: Measure the diff
         id: measure
         run: |
@@ -1714,6 +1744,36 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+
+      # Self-hosted runners are minimal and do not ship GitHub-hosted's toolset.
+      # Installed without root, so this works whether or not sudo is available.
+      - name: Ensure gh and jq are available
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            aarch64|arm64) JQ=arm64; GH=arm64 ;;
+            x86_64|amd64)  JQ=amd64; GH=amd64 ;;
+            *) echo "::error::Unsupported architecture $ARCH"; exit 1 ;;
+          esac
+
+          if ! command -v jq >/dev/null; then
+            echo "jq not present, installing jq-linux-$JQ"
+            curl -fsSL "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ"               -o "$HOME/.local/bin/jq"
+            chmod +x "$HOME/.local/bin/jq"
+          fi
+
+          if ! command -v gh >/dev/null; then
+            echo "gh not present, installing gh_2.63.2_linux_$GH"
+            curl -fsSL "https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_$GH.tar.gz"               | tar -xz -C /tmp
+            mv "/tmp/gh_2.63.2_linux_$GH/bin/gh" "$HOME/.local/bin/gh"
+          fi
+
+          jq --version && gh --version | head -1
 
       - name: Collect what the agent produced
         id: collect
