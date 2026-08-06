@@ -805,6 +805,24 @@ _0 open, 1 done. Regenerate with `node scripts/board.mjs --index`._
 
 <!-- /board:index -->
 
+## Two fields worth explaining
+
+**`Design`** names the part of the design this ticket comes from — a path, and a heading if the file is large.
+`scripts/next.mjs` checks it resolves, and routes to `extend-tdd` when it does not, because a ticket with no
+design behind it is work nobody described. That is also **how new work enters mid-project**: the TDD is living,
+so work that no section covers means extending the TDD first, linking to it, and only then writing the spec.
+Speccing it directly is how a codebase grows features its own design document does not mention, and the next
+person reads that document and is confidently wrong.
+
+It checks the section EXISTS, not that it describes this ticket. A link to the wrong heading passes. It catches
+the common case, which is no design at all.
+
+**`DROPPED`** is the second terminal state, and it exists because there was only one. Not every ticket should
+be finished — some are the right decision to abandon — and an entry whose only terminal state is DONE either
+sits open for ever or gets marked DONE having shipped nothing. A DROPPED entry needs a **Resolution** saying
+why, exactly like a DONE one, and it stops blocking anything that was waiting on it. Dropping is a decision;
+deleting the entry is how the decision disappears.
+
 ## Seeing it, and keeping it honest
 
 The index at the top is generated from the entries below — run `node scripts/board.mjs --index` and commit
@@ -845,8 +863,9 @@ Copy this. Every heading earns its place, and the last two are the ones people s
 ```markdown
 # PULSE-123 — one line, no "and"
 
-**State** open | in progress | blocked | DONE (YYYY-MM-DD)
+**State** open | in progress | blocked | DONE (YYYY-MM-DD) | DROPPED (YYYY-MM-DD)
 **Depth** light | standard | high   ·   **Raised by** a person, a review, an incident, another ticket
+**Design** docs/design/tdd.md#the-section-this-comes-from
 **Blocked by** PULSE-101 — omit the line when nothing blocks it
 
 ## Goal

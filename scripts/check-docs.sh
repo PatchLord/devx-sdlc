@@ -9,7 +9,7 @@ say() { printf "  %-40s %s\n" "$1" "$2"; }
 EXPECTED="README 01-why 02-before-build 03-delivery 04-build-loop 05-depth 06-enforcement \
 07-repository 08-templates 09-host-and-pipeline 10-stack-wiring 11-measurement 12-runbook \
 13-troubleshooting 14-limits 15-reference 16-agent-run-delivery 17-artefacts 18-outcomes 19-first-run \
-20-orientation 21-capability"
+20-orientation 21-capability 22-edge-cases"
 
 # 1. every document present
 MISSING=""
