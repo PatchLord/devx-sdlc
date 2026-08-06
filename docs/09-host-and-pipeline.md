@@ -826,6 +826,31 @@ if (!only || only === "gates") {
       commits: [{ files: { "src/specification.ts": "export const s = 2;\n", "CODEOWNERS": "* @team\n# edited\n" }, message: "chore: owners plus specification" }] }),
   });
 
+  // Reproduces a real commit from a live project: feat(us2), 69 files, and four accessibility rules
+  // turned off in biome.json in the same commit. One of them was noLabelWithoutControl, and the defect
+  // it exists to catch was fixed nineteen days later. This is the shape gates.yml has to reject.
+  check("gates: REGRESSION — a lint rule turned off inside a feature commit", {
+    ...mixing, expect: "fail", contains: "mixes a gate change with implementation",
+    repo: build({
+      baseFiles: { "biome.json": '{ "linter": { "rules": { "a11y": { "noLabelWithoutControl": "error" } } } }\n' },
+      commits: [{ files: {
+        "biome.json": '{ "linter": { "rules": { "a11y": { "noLabelWithoutControl": "off" } } } }\n',
+        "src/masters/list.tsx": "export const List = () => null;\n",
+        "src/masters/form.tsx": "export const Form = () => null;\n",
+      }, message: "feat(us2): six masters — REST API + React UI, wired end-to-end" }] }),
+  });
+
+  check("gates: the same lint change on its own commit passes, and is visible", {
+    ...mixing, expect: "pass", contains: "gate-only change",
+    repo: build({
+      baseFiles: { "biome.json": '{ "linter": { "rules": { "a11y": { "noLabelWithoutControl": "error" } } } }\n' },
+      commits: [
+        { files: { "biome.json": '{ "linter": { "rules": { "a11y": { "noLabelWithoutControl": "off" } } } }\n' },
+          message: "chore(lint): turn off noLabelWithoutControl — see DEFERRED entry" },
+        { files: { "src/masters/list.tsx": "export const List = () => null;\n" }, message: "feat: the masters list" },
+      ] }),
+  });
+
   check("gates: source alone, no gate touched, passes", {
     ...mixing, expect: "pass", contains: "No commit mixes a gate change",
     repo: build({ commits: [{ files: src, message: "feat: just code" }] }),

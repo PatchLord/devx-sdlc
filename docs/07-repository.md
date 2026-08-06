@@ -946,6 +946,22 @@ fires; that is the only way to know the patterns are right.
 /CLAUDE.md                 @devx/tech-leads
 /.claude/                  @devx/tech-leads
 /docs/design/criteria/     @devx/tech-leads
+
+# Lint and format configuration. Turning a rule off is a gate change, and gates.yml already stops it
+# riding inside a feature commit — but on its own commit it would merge with nobody reading it. A live
+# project turned four accessibility rules off inside a 69-file feature commit and paid for it nineteen
+# days later with the exact defect one of those rules exists to catch. Add your stack's files here.
+/biome.json                @devx/tech-leads
+/biome.jsonc               @devx/tech-leads
+/.eslintrc*                @devx/tech-leads
+/eslint.config.*           @devx/tech-leads
+/ruff.toml                 @devx/tech-leads
+/.stylelintrc*             @devx/tech-leads
+/stylelint.config.*        @devx/tech-leads
+/docs/production-ready.md  @devx/tech-leads
+
+# REVIEW.md is deliberately NOT here. It is owned by the team and edited freely, so that changing what
+# gets reviewed never needs an owner's keystroke — see the artefact chapter.
 ```
 
 ## `.github/pull_request_template.md`

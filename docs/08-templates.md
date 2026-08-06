@@ -574,6 +574,41 @@ value fails the same way as a deny-list.
 That last one is the rule this project exists to enforce. "It renders" is a different check: a page with
 no Create button renders perfectly.
 
+### The design system
+
+| | Rule | Tier |
+|---|---|---|
+| ☐ | No raw colour, spacing or type value outside the token registry. No hex, no arbitrary pixel value, no one-off radius | **1** — `stylelint color-no-hex`, `tailwindcss/no-arbitrary-value`, or the equivalent for your stack |
+| ☐ | Retired class prefixes and deprecated tokens are rejected, not merely discouraged | **1** — a bespoke grep is enough, and it is about ten lines |
+| ☐ | Components come from the component layer. A fourth way to render a card is a defect even when it looks right | **2** |
+| ☐ | A screen matches its design frame | **2** — a screenshot, compared by a person. No lint reaches this |
+| ☐ | The lint configuration is a protected path, so turning a rule off needs a second person and its own commit | **1** — `CODEOWNERS` plus the gate-mixing check |
+
+**Why the token rule is tier 1 and not a style preference.** An agent does not know your tokens, so it emits
+the most specific value it can generate — `#1A56B0`, `p-[17px]`, a bare `border-radius`. Each is individually
+correct and each adds a line to a shadow scale, and the failure surfaces months later when the brand colour
+changes: every component using the token updates and the hardcoded one does not. That is the design system
+breaking the only promise it makes. Same law as everywhere else here — the agent builds to the shape of the
+check, and with no token check it builds to the shape of the prompt.
+
+**And the last row is the one a live project paid for.** A project that took its design system seriously —
+twenty always-true rules in the agent's standing context, a doctrine document declared the source of truth,
+a bespoke pre-push guard against a retired class prefix — shipped a commit titled
+`feat(us2): six masters — REST API + React UI, wired end-to-end` touching **69 files**, which among them
+turned four accessibility rules off in `biome.json`. One was `noLabelWithoutControl`. **Nineteen days later a
+commit titled "associate every form label with its control" fixed the defect that rule exists to catch**, and
+found on the way that the labels had never been associated anywhere in the product.
+
+Nothing in that story is a missing lint. The lint existed and was switched off inside a feature commit, where
+nobody reads configuration. So the tier-1 form of a design system is not only the rules — it is the rules
+plus the thing that stops them being quietly disabled.
+
+**What standing context is for, and what it is not.** Twenty design rules in `CLAUDE.md` did not prevent any
+of the above, and that is not an argument against having them. Standing context is **generative** — it makes
+the agent produce the right thing more often, which is worth a great deal. It is not **preventative**, and
+counting it as enforcement is the mistake. Keep the doctrine, and never let it appear in a column headed
+*how this is enforced*.
+
 ## Being able to run it
 
 | | Rule | Tier |
