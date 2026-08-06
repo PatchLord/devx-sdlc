@@ -50,6 +50,20 @@ if [ -d "$STARTER" ]; then
   fi
 fi
 
+# 4b. the demo agreement's counts match what they count
+#
+# The two-page agreement summarises a 23,000-word terms document, and every number in it is a hand-copied
+# figure with no link back to the rows it counts. Three of them had drifted before this check existed — the
+# risk count twice over, and the exclusion count by one — and the reader who found it was a simulated client
+# reading his own signature block. A summary is the right shape; an unchecked summary is a liability.
+if [ -d "demo/ops-todo-board" ]; then
+  if python3 scripts/check-sow-counts.py > /tmp/.sow-counts 2>&1; then
+    say "demo agreement counts" "ok"
+  else
+    say "demo agreement counts" "MISMATCH"; sed 's/^/    /' /tmp/.sow-counts; FAIL=1
+  fi
+fi
+
 # 5. figures trace to the sources file
 UNTRACED=""
 for p in $(cat docs/*.md | grep -oE '[0-9]+(\.[0-9]+)?%' | sort -u); do

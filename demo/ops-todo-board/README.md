@@ -77,6 +77,17 @@ The revision document is incomplete and says so: the agent that produced it was 
 revised sections 1–10 do not exist. Recorded rather than quietly regenerated, because a gap that is named
 costs less than one that is smoothed over.
 
+**One more defect, and the client found it.** §15 carries eighteen accepted risks. The two-page agreement said
+thirteen, split seven / two / four, when §15 actually carried seven / two / nine. Two rows in it were both
+numbered 13 — the same risk about the Google Sheet, written twice — so nineteen rows counted to eighteen and
+nobody noticed either number was wrong. An agent playing Dev Rawat found it by reading his own signature block
+in §13.1 and counting what he was being asked to sign for. Both verifiers had read §15 and neither had counted
+it. That is the cost of a two-page summary of a 23,000-word document, and it is not an argument against the
+summary: it is that every number in the short version is a copy with no link back to the thing it counts, so
+it goes stale silently while the long version stays correct. The reader most likely to check is the one
+signing. Fixed by merging the duplicated row, correcting the counts, and making §13.1 say why its list of six
+is shorter than the nine in §15 instead of reading as a third count.
+
 ## The four blocking changes, because they are the demonstration
 
 1. **A data-protection sentence that the document itself contradicts.** §10.4 promised that a customer's

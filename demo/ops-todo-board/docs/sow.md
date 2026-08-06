@@ -46,7 +46,7 @@ of the terms.
 
 ## Four things to know before signing
 
-**1. What we will not verify.** Thirteen things, each written down rather than discovered later. The ones
+**1. What we will not verify.** Fourteen things, each written down rather than discovered later. The ones
 worth reading first: we do not verify that Shopify's stock number matches what is on the shelf, and the whole
 stock signal fires off that number; phase 1 cannot reduce the count of late orders, because it only fires
 after an order is already late; and we do not verify behaviour under Diwali load, because a load test is not
@@ -83,15 +83,16 @@ already accepted. §12 of the terms.
 
 ## Risks somebody has accepted by name
 
-Thirteen risks were argued and left rather than fixed, each with an owner so that if one goes wrong it was a
-decision rather than an accident — seven carried by Karan Iyer, two by Anjali Sharma, four by Dev Rawat. They
-are listed in §15 of the terms, and the four in Dev's name are the ones to read before signing.
+Eighteen risks were argued and left rather than fixed, each with an owner so that if one goes wrong it was a
+decision rather than an accident — seven carried by Karan Iyer, two by Anjali Sharma, nine by Dev Rawat. They
+are listed in §15 of the terms, and the nine in Dev's name are the ones to read before signing. Six of those
+nine are things he signs to have been told; three are decisions of his own. §13.1 splits them that way.
 
 ## Signatures
 
 | | | |
 |---|---|---|
-| **Dev Rawat** | founder, Marigold Living | signing for the scope, the price, the four things above, and the four risks in his name |
+| **Dev Rawat** | founder, Marigold Living | signing for the scope, the price, the four things above, and the nine risks in his name |
 | **Anjali Sharma** | delivery lead, devx labs | signing for the dates being achievable on the stated conditions, and for the commercial terms |
 | **Karan Iyer** | tech lead, devx labs | signing for every technical claim being one he can stand behind, and every gap being named rather than smoothed — **including his refusal to warrant that agent-written code is provably original** |
 

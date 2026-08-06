@@ -686,6 +686,8 @@ Signing for: the scope in §2 and §3 being the thing Marigold wants, including 
 
 And signing to have been told, rather than to agree: that Shopify's number may not match the shelf and the stock signal fires off it anyway; that phase 1 cannot move the late-order percentage and P1-18 was priced and not bought; that Priya is the single confirm-and-reopen point with D-4 unresolved; that the sheet and the Monday export both survive; that the board is English only; and that nobody is contracted to teach the two temps. Each of those is recorded with **his** name on it, in the section it belongs to.
 
+That list is six items, and §15 carries nine risks in his name. The three that are not in it are in the paragraph above, because they are decisions of his rather than facts he is being told: the provenance decision in D-11 (§15 risk 15), the staff data in §10.4 (§15 risk 14), and the running-cost band with a top above the ₹35,000 ceiling (§15 risk 18). Six told plus three decided is the nine in §15. **No risk carried in his name is absent from this block**, and if this paragraph and §15 ever disagree on the count, §15 is the list and this is the summary.
+
 Signature: ________________  Date: ____________
 
 *Anjali Sen (co-founder) and Ravi Menon (accountant) are on the approval path for the fee per §9.2. The ₹18–26 lakh envelope was approved in writing on 5 August — Annexe C — so what is signed here is a number inside it. Their approval is not a signature on this document.*
@@ -791,8 +793,7 @@ Not every finding gets fixed. These were argued and left, and each one has an ow
 10. **Shopify's stock number may not match the shelf**, and the whole low-stock signal fires off it (N-11, X-21). Reconciliation is out of scope by his choice.
 11. **Phase 1 cannot move the late-order percentage** (N-12), and P1-18 — the one thing that could, before December — is not bought.
 12. **Priya is the single confirm-and-reopen point** until D-4 closes, and during Diwali her button is the board's throughput limit. A-28's ageing flag is a mitigation, not a fix.
-13. **The sheet and the Monday export both survive** (N-13). P1-14 keeps a mirror tab alive and X-18 keeps Tarun's export running, so for at least one phase Marigold operates two systems that can disagree. Retiring either is a decision he has not made, and nothing in this engagement forces it.
-13. **The Google Sheet stays alive**, with Tarun's Monday export (X-18) and a mirror tab (P1-14), which works against Marigold's own success test 6 (N-13).
+13. **The sheet and the Monday export both survive** (N-13). P1-14 keeps a mirror tab alive and X-18 keeps Tarun's Monday export running, so for at least one phase Marigold operates two systems that can disagree — which works against Marigold's own success test 6. Retiring either is a decision he has not made, and nothing in this engagement forces it.
 14. **Per-person reopen statistics are performance monitoring of a named employee**, held with Priya's stated purpose and Tarun's knowledge, pending D-10.
 15. **Provenance trailers in Marigold's own repository are effectively permanent either way** (D-11), and interact with the originality clause (D-6, §10.3).
 16. **English only in phase 1** (X-20, D-13), for a warehouse hand in Bhiwandi.
