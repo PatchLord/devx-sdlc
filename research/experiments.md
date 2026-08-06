@@ -55,10 +55,22 @@ because it tests nothing looks identical to one that works, so this step is not 
 | `gates` rejects a gate change mixed with source | **proven** |
 | **A red required check blocks the merge button** | **proven** — `mergeStateStatus: BLOCKED` with `size` red and everything else green |
 | The checks discriminate rather than blanket-fail | **proven** — on one pull request `size` failed while `spec` and `gates` passed, each for a stated reason |
-| Code-owner review is enforced | **not proven.** `CODEOWNERS` names `@devx/tech-leads`, which **does not exist** in the org — exactly the failure the pre-mortem predicts, and it means code-owner review could never have been satisfied |
+| Code-owner review blocks a protected-path change | **proven** — `CODEOWNERS` fixed to a real account, then one line under `src/auth/` gave `reviewDecision: REVIEW_REQUIRED`, `mergeStateStatus: BLOCKED` |
+| **The author cannot satisfy it** | **proven by GitHub itself**: `failed to create review: Review Can not approve your own pull request`. The second-person requirement is now a demonstrated fact rather than an argument |
+| `gates` discriminates on a host, not just offline | **proven** — the `CODEOWNERS` commit reported `is a gate-only change — visible, as intended: M CODEOWNERS`, and the pull request passed |
 | `perimeter` goes green once protection is set | **not proven** — needs a fine-grained `PERIMETER_TOKEN`, which only the repository owner can create |
 | The review agent runs | **not proven** — needs `ANTHROPIC_API_KEY` |
 | Force-push refusal, stale-approval dismissal | **not proven** — set in protection, not exercised |
+
+**A deadlock the runbook does not warn about, found by nearly walking into it.** `CODEOWNERS` named a team
+that did not exist, so GitHub ignored every rule in it. Requiring code-owner review *before* fixing that file
+is unrecoverable: the file that would have to approve its own repair is the broken one, and no pull request
+can merge. The order is therefore fixed — **land a working `CODEOWNERS` first, then require the review** —
+and it is the reverse of the instinct, which is to turn the protection on and fix the details after.
+
+**One shortcut was taken and is recorded as one.** Merging the `CODEOWNERS` fix needed an approval that no
+second person existed to give, so it went in with `--admin`. That is metric 4, and the honest reading is that
+this repository has had one bypass in nine pull requests, by the only person with access.
 
 **What running it taught that no offline test could.** Two of our own rules collide: `spec.yml` requires the
 spec to be the branch's first commit *and alone in it*, and it also requires the ticket to have a board

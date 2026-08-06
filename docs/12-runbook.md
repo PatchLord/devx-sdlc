@@ -78,6 +78,12 @@ in the repository is advisory.** If it is green, or skipped, stop — you have r
 of this runbook is theatre. That red run is the artefact proving the perimeter check works. The green one that
 follows proves nothing on its own. Paste both run URLs into the project's setup notes.
 
+**Before you set anything: check that `CODEOWNERS` names something that resolves.** The starter ships a
+placeholder team, and GitHub silently ignores an owner it cannot find — so the file protects nothing while
+looking like it does. Worse, requiring code-owner review against a broken file is unrecoverable: the file
+that would have to approve its own repair is the broken one, and no pull request can merge. Land a working
+`CODEOWNERS` first, then require the review. This was found by nearly doing it in the wrong order.
+
 Now set protection on `main` to exactly this:
 
 - `required_status_checks.strict = true`
