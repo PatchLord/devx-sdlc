@@ -8,12 +8,16 @@ say() { printf "  %-40s %s\n" "$1" "$2"; }
 
 EXPECTED="README 01-why 02-before-build 03-delivery 04-build-loop 05-depth 06-enforcement \
 07-repository 08-templates 09-host-and-pipeline 10-stack-wiring 11-measurement 12-runbook \
-13-troubleshooting 14-limits 15-reference 16-agent-run-delivery 17-artefacts 18-outcomes 19-first-run"
+13-troubleshooting 14-limits 15-reference 16-agent-run-delivery 17-artefacts 18-outcomes 19-first-run \
+20-orientation 21-capability"
 
 # 1. every document present
 MISSING=""
 for d in $EXPECTED; do [ -f "docs/$d.md" ] || MISSING="$MISSING $d"; done
-[ -z "$MISSING" ] && say "all 20 documents present" "ok" || { say "all 20 documents present" "MISSING:$MISSING"; FAIL=1; }
+# Counted from EXPECTED rather than written as a literal. "all 20 documents present" stayed in this message
+# while the set grew to 22, which is a check reporting a number it had stopped measuring.
+NDOCS=$(printf '%s\n' $EXPECTED | wc -l | tr -d ' ')
+[ -z "$MISSING" ] && say "all $NDOCS documents present" "ok" || { say "all $NDOCS documents present" "MISSING:$MISSING"; FAIL=1; }
 
 # 2. no cross-link points at a file that does not exist
 DEAD=""
@@ -36,11 +40,13 @@ STALE=$(grep -lE '\b(part|section) (1[0-5]|[1-9])\b' docs/*.md 2>/dev/null | tr 
 # old version of this check stay green.
 if [ -d "$STARTER" ]; then
   RESULT=$(STARTER="$STARTER" python3 scripts/check-inlines.py)
-  N=${RESULT%%|*}; REST=${RESULT#*|}; STALE=${REST%%|*}; NOTONCE=${REST#*|}
-  if [ -n "$STALE" ] || [ -n "$NOTONCE" ]; then
-    say "starter files inlined once, current" "STALE:$STALE NOT-ONCE:$NOTONCE"; FAIL=1
+  N=${RESULT%%|*}; REST=${RESULT#*|}
+  STALE=${REST%%|*}; REST=${REST#*|}
+  NOTONCE=${REST%%|*}; UNMENTIONED=${REST#*|}
+  if [ -n "$STALE" ] || [ -n "$NOTONCE" ] || [ -n "$UNMENTIONED" ]; then
+    say "starter accounted for in docs" "STALE:$STALE NOT-ONCE:$NOTONCE UNMENTIONED:$UNMENTIONED"; FAIL=1
   else
-    say "starter files inlined once, current" "ok ($N files)"
+    say "starter accounted for in docs" "ok ($N files)"
   fi
 fi
 

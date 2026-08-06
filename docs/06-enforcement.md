@@ -952,6 +952,195 @@ and exits 0 when `coverage/lcov.info` does not exist. That is the one place we c
 the cost is exact: a repository whose test step emits no lcov shows `verify` green with changed-line
 coverage never measured.
 
+## criteria — every criterion names evidence that exists
+
+**What it enforces.** That every row of a criteria table — in the pull request body, and in the spec the
+branch was built from — carries an evidence cell that resolves to something a person or a script can go
+and look at. Three forms resolve: a path to a file that exists in the repository, a test title a test
+file actually contains, or a URL. Prose fails. An empty cell fails. And so do the words that stand in
+for proof — verified, done, tested, confirmed, yes, n/a, ✓ — **including when they are wrapped in
+backticks or quotes**, which is the form that defeated the first version of the resolver entirely.
+
+"Green checks are not evidence" is the oldest rule in this standard, and until now it had no mechanical
+form. The criteria table was read by people, so a cell saying `verified` passed. A claim in place of an
+artefact is worse than a blank cell: the blank cell is visibly missing, and the claim reads as
+diligence.
+
+Finding 47 in [`research/findings.md`](../research/findings.md) is the case that made this a check
+rather than a preference. `promote.yml` once required two cells to be blank with an AND, where three of
+this standard's own documents said OR. So `| Rollback tested | verified | |` was accepted — the empty
+row was refused and the confident one merged through a production gate. The row that looked filled in
+was the one nothing had checked.
+
+Two design consequences follow directly from that finding, and both are the same shape.
+
+*It resolves every row and never stops at the first failure.* Finding 47's bug was a condition that
+stopped looking once part of a row was filled in, and reported on the whole. A resolver that returned on
+the first bad cell would also make a five-row table take five pushes to fix.
+
+*It refuses to pick one table when several qualify.* Selection by first match was the same defect in a
+second place: a `## Scope` table headed `| Item | Check |` matches the criterion and evidence column
+patterns by luck, so it shadowed the real table under a literal `## Acceptance criteria` heading, and
+the gate exited 0 with two failing criteria unread. Precedence is now by strength of signal — tables
+inside an acceptance-criteria section first, then tables whose header names both columns — and **every**
+table in the winning tier is resolved and its rows concatenated. The cost is that an unrelated table
+inside a criteria section can now refuse the document. That is the direction this fails on purpose: a
+false refusal is a question for a person, a false pass is a production gate agreeing with itself.
+
+The claim words are refused before any text search, and the order is load-bearing. Words like "verified"
+and "done" appear inside real test files. The first version tested the claim list against a cell that
+still carried its wrappers, so `` `verified` `` — the way anybody writing markdown types a word they
+mean literally — never matched, execution fell through to the test-file search, and a fixture containing
+`it("email is verified after signup", ...)` made the cell resolve. The gate then reported evidence for a
+row that named none. Backticks, quotes, curly quotes, bold, italic and brackets are stripped as matched
+pairs around the whole cell, repeatedly, and every one of them has a regression case in the resolver's
+self-test.
+
+`.github/workflows/criteria.yml`
+
+```yaml
+name: criteria
+
+# Does every acceptance criterion name evidence that exists?
+#
+# "Green checks are not evidence" is the oldest rule here and until now it had no mechanical form. The criteria
+# table was read by people, so a cell saying `verified` passed — and a claim in place of an artefact is worse
+# than a blank cell, because a blank cell is visibly missing and a claim looks like an answer.
+#
+# This resolves every row of the table. A cell passes when it names something checkable: a path that exists, a
+# test title a test file actually contains, or a URL. It fails on prose, on an empty cell, and on the words
+# that stand in for proof — verified, done, tested, confirmed, yes, n/a, ✓ — including when they are wrapped in
+# backticks or quotes, which defeated the first version of this check completely.
+#
+# It resolves EVERY row and never stops at the first failure. That is not a nicety: `promote.yml` once required
+# two cells to be blank with an AND where three documents said OR, so `| Rollback tested | verified | |` passed
+# a production gate. A check that reads part of its input and reports on all of it is the defect class this
+# repository has hit most often. Same reason the resolver refuses to PICK one table when several qualify.
+#
+# ADVISORY at first, and honest about why: it is new, and its false-positive rate on real specs is unknown. A
+# check promoted to required before anyone knows how often it is wrong is how a team learns to add
+# `size-override`-shaped escapes. Promote it once it has run on real work — same rule as `review`.
+#
+# WHAT THIS CANNOT DO. It cannot tell whether the test a criterion names actually PROVES that criterion; it
+# checks that the artefact exists, not that it is honest. A test called "checkout works" that asserts `true`
+# satisfies this check completely, and `red-on-base` plus mutation testing are what push back on that. It also
+# cannot see evidence that lives only in somebody's head or in a Slack thread, which is the point.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  criteria:
+    runs-on: arm64
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # The resolver's own tests, here rather than only on a laptop. If it cannot tell a claim from an
+      # artefact, a green run on this workflow means nothing at all.
+      - name: The resolver still works
+        run: node scripts/lib/criteria.mjs --self-test
+
+      # The body goes through the environment, never through shell interpolation. `spec.yml` shipped
+      # `${{ github.event.pull_request.head.ref }}` inline once, which is a command injection with a branch
+      # name for a payload — a pull request body is a far larger and more attacker-controlled string.
+      - name: Every criterion on the pull request names evidence that exists
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${PR_BODY:-}" > .criteria-pr-body.md
+
+          FAILED=0
+
+          echo "── the pull request body ────────────────────────────────────────"
+          node scripts/lib/criteria.mjs .criteria-pr-body.md || FAILED=1
+
+          # The spec's table is a different artefact from the pull request's, and it is the one that was agreed
+          # BEFORE the work. A branch whose spec criteria never resolved should not have reached a pull request
+          # at all — scripts/next.mjs refuses to enter implementation in that state — so a failure here is
+          # evidence that something bypassed the loop, which is worth knowing on its own.
+          TICKET=$(printf '%s' "$BRANCH" | grep -oE '^[A-Z][A-Z0-9]+-[0-9]+' || true)
+          if [ -n "$TICKET" ] && [ -f "docs/specs/$TICKET.md" ]; then
+            echo
+            echo "── docs/specs/$TICKET.md ────────────────────────────────────────"
+            node scripts/lib/criteria.mjs "docs/specs/$TICKET.md" || FAILED=1
+          fi
+
+          rm -f .criteria-pr-body.md
+          if [ "$FAILED" -ne 0 ]; then
+            echo
+            echo "::error::A criterion names no evidence that can be checked."
+            echo "Name the test, the file, the screenshot or the run. If a criterion genuinely cannot be"
+            echo "proven, that is a question for a person BEFORE it is code — say so under 'What this does"
+            echo "not verify' and take the row out of the criteria table, rather than filling the cell with"
+            echo "a word that looks like proof."
+            exit 1
+          fi
+```
+
+The resolver itself is `scripts/lib/criteria.mjs`, a library rather than a gate: it decides and reports
+and refuses nothing on its own. It becomes tier 1 when a required check calls it, and tier 1
+harness-only when a hook does — the same file is what lets a session refuse to enter implementation
+while the spec's criteria do not resolve, which is the third bound in [orientation](20-orientation.md).
+Its `--self-test` runs against fixtures on disk rather than strings, because half of what it does is ask
+the filesystem a question, and it runs in this workflow rather than only on somebody's laptop. If the
+resolver cannot tell a claim from an artefact, a green run here means nothing at all.
+
+**It is advisory at first, and classified that way in `perimeter.yml`.** The honest reason is that its
+false-positive rate on real specs is unknown. Nobody has yet run it across a body of specs written
+before it existed, and a check promoted to required before anyone knows how often it is wrong is exactly
+how a team learns to add `size-override`-shaped escapes — after which the escape is the process and the
+check is decoration. It is promoted the same way `review` is: once it has produced findings on real
+work, and its refusal rate is a number somebody can quote.
+
+**The failure output names its own teacher.** It prints `docs/design/criteria/_template.md` for five
+worked examples and the `acceptance-criteria` skill for the rules in full. That belongs in the error
+rather than only in the skill, because a failing check is the one moment the reader is guaranteed to be
+looking. A rule that lives only where a session may or may not load it is prose — [tier
+3](08-templates.md), which loses to context pressure. The same sentence attached to a red X gets read.
+
+**How to test it locally.**
+
+```bash
+node scripts/lib/criteria.mjs --self-test            # the resolver, against fixtures on disk
+node scripts/lib/criteria.mjs docs/specs/PULSE-123.md
+
+gh pr view --json body --jq .body > .criteria-pr-body.md
+node scripts/lib/criteria.mjs .criteria-pr-body.md ; rm -f .criteria-pr-body.md
+```
+
+Then make it fail on purpose. Put `| Rollback tested | verified | |` in a table under an
+`## Acceptance criteria` heading and watch the row come back as a claim rather than evidence. Wrap the
+word in backticks and watch it come back the same way — that is the regression that matters. Add a
+`## Scope` table above it headed `| Item | Check |` and confirm the criteria table is still read.
+
+**What it catches.** The cell that says `verified`, `done` or `n/a` where an artefact belongs, quoted or
+not. The empty evidence cell. The criterion whose evidence is a sentence about how it was checked. A
+named path that does not exist. A criteria table that is a bulleted list, which names no artefact and
+cannot be resolved at all. And a spec whose criteria never resolved, which is evidence the loop was
+bypassed on the way to this pull request.
+
+**What it cannot catch.** It checks that the artefact exists, not that it is honest. A test named
+"checkout works" that asserts `true` satisfies it completely, and so does
+`| Totals are correct | README.md |`, because the file is there. That judgement is a person's, which is
+why the review agent's prompt is pointed at exactly this column, and `red-on-base` is what asks whether
+the named test would have failed before the change. Mutation testing is the honest missing gate here as
+well, and it is not in the starter. Three smaller limits, all stated because they are easy to miss: it
+does not run the test it finds or fetch the URL it accepts, so a 404 passes; it searches test files by
+literal text, so a title assembled at runtime reads as prose, which is a false refusal rather than a
+false pass; and it skips fenced code blocks, so a table inside one is invisible — safe only because a
+missing table is a refusal and not a pass.
+
 ## review — a fresh session reads the diff
 
 **What it enforces.** That a session which did not plan the work and did not write it reads the pull
@@ -1207,7 +1396,7 @@ jobs:
           # from the noise. That is the failure this whole repository exists to prevent, arriving
           # through the back door. So: if you cannot wire it, delete it and record it as *to build*.
           REQUIRED_CHECKS="size gates spec verify"
-          ADVISORY_CHECKS="review red-on-base evidence"
+          ADVISORY_CHECKS="review red-on-base evidence criteria"
           NOT_A_GATE="perimeter scan deploy promote"
           REQUIRED_APPROVALS=1
           # ─────────────────────────────────────────────────────────────────────────────────────
@@ -1350,6 +1539,17 @@ jobs:
           fi
           echo ""
           echo "The perimeter matches. Required: $REQUIRED_CHECKS, $REQUIRED_APPROVALS approval(s), code owners, no force push."
+
+      # The in-session half of the perimeter. `.claude/settings.json` registers hooks by script path, and a
+      # path that resolves to nothing is a hole in the enforcement surface that looks exactly like a hook:
+      # registered, listed, never running. This belongs here rather than in a pull-request check because it is
+      # the same question every other step on this job asks — does the thing we claim to enforce exist?
+      #
+      # Only NEVER INSTALLED fails. On a fresh checkout there are no heartbeats, so every hook reads NEVER
+      # FIRED, and failing on that would make this job permanently red — the wall of red this file's own three
+      # states exist to prevent.
+      - name: Every registered hook points at a script that exists
+        run: node scripts/hook-health.mjs --check
 ```
 
 The two greps at the end are checking that `CODEOWNERS` assigns `/.github/workflows/` and `/CODEOWNERS`
@@ -1569,6 +1769,13 @@ pre-push:
     # with no Resolution on a ticket other than this branch's. A hint, so --no-verify walks past it —
     # the one property that must hold is gated in spec.yml instead.
     board:  { run: "node scripts/board.mjs --check" }
+    # The gates' own tests, before they get a chance to be wrong on somebody else's branch. A hint here and a
+    # required check in verify.yml: this one is fast enough to want locally and too important to leave optional.
+    selftest: { run: "node scripts/self-test.mjs" }
+    # A hook that silently stopped firing is worse than no hook. Only NEVER INSTALLED fails (exit 1) — a
+    # registered script that is not in the tree. NEVER FIRED is the normal state of a fresh clone and must not
+    # fail, or this recreates the wall of red that finding 63 is about.
+    hooks:    { run: "node scripts/hook-health.mjs --check" }
 ```
 
 The pre-push hook runs the same `bun run verify` that `verify.yml` runs. That is the point of having one
@@ -1704,6 +1911,9 @@ happening again.
 | Format, lint, types, build, tests | one entry point: hook and required check | `verify.mjs` + `verify.yml` | written — fails when unwired |
 | 80% coverage on changed lines | threshold that fails the build | `changed-line-coverage.mjs` | written — skipped when no lcov |
 | Assertions actually assert | mutation testing | nothing | **to build** |
+| Every criterion names evidence that resolves | advisory check over every row of the table | `criteria.yml` + `scripts/lib/criteria.mjs` | written — advisory until its false-positive rate is known |
+| A claim word cannot stand in for an artefact | the resolver's refusal list, wrappers stripped first | `scripts/lib/criteria.mjs` | written — the quoted form is a regression case |
+| The named artefact actually proves the criterion | judgement, plus `red-on-base` for a named test | `review.yml`, `red-on-base.yml` | **to build** — nothing mechanical reads the artefact |
 | A fresh session reviews the diff | required check | `review.yml` | written — fails when unconfigured |
 | Every finding gets a disposition | `required_conversation_resolution` | host config, asserted by `perimeter.yml` | written |
 | The gate surface is inspected | the review agent's first ordering rule | `review.yml` | written — the only check aimed at the checks |
@@ -1734,6 +1944,10 @@ So the last step of setting this up is not reading these files. It is this, once
 5. Remove `size` from the host's required checks. Run `perimeter` by hand. Watch it fail. Put it back.
 6. Unset `ANTHROPIC_API_KEY`. Watch `review` fail rather than report green for work nobody read.
 7. Turn Dependabot off. Run `scan` by hand. Watch it fail rather than report a clean tree.
+8. Put `| Rollback tested | verified | |` in a pull request body, then the same word in backticks. Watch
+   `criteria` refuse both rows and name the template that shows the right shape. It reports rather than
+   blocks, so what you are observing is that the resolver is right — which is the precondition for ever
+   making it required.
 
 Until a failure has been observed, a check is a claim. After it — and only for the specific thing you
 made fail — the status column may say *proven*. Put the run link next to the row. The dated plan for
@@ -1859,7 +2073,7 @@ jobs:
           RUN="https://github.com/$REPO/actions/runs/${{ github.run_id }}"
 
           if [ "$FOUND" = "none" ]; then
-            BODY=$(printf '**No evidence artefacts on this branch.**\n\nThat is correct for work with nothing to look at — a migration, a worker, a refactor. It is not correct for anything with an interface: our rule is that a ticket with an interface is not done until something operated it, and "it renders" is a different check.\n\nIf this ticket has a visible criterion, run the `operate-app` skill and push. If it does not, say so in the criteria table and this comment can be ignored.')
+            BODY=$(printf '**No evidence artefacts on this branch.**\n\nThat is correct for work with nothing to look at — a migration, a worker, a refactor. It is not correct for anything with an interface: our rule is that a ticket with an interface is not done until something operated it, and "it renders" is a different check.\n\nIf this ticket has a visible criterion, run the `operate-app` skill and push. If it does not, say so under **What this does not verify** and this comment can be ignored — NOT in the criteria table, which the `criteria` check reads: a cell holding an explanation instead of an artefact is exactly what that check refuses, and this comment used to send people straight into it.')
           else
             BODY=$(printf '**%s evidence artefact(s)** for `%s` — [download from the run](%s).\n\nManifest present: **%s**. The manifest is the part worth reading: it says which criterion each artefact proves, and which criteria it could not cover. A manifest with no gaps on a ticket that has gaps is worse than none.' \
               "$FOUND" "$TICKET" "$RUN" "$MANIFEST")

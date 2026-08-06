@@ -1,40 +1,65 @@
 # The runbook
 
-The dated order in which we switch this on, with one testable checkpoint per step, and what to do the day a
-developer joins a project already running it. Whoever is standing up a repository reads this with
+The order in which we switch this on, with one testable checkpoint per step, and what to do when a developer
+joins a project already running it. Whoever is standing up a repository reads this with
 [the repository](07-repository.md), [host and pipeline](09-host-and-pipeline.md) and
 [stack wiring](10-stack-wiring.md) open beside them.
 
 ## The order, and why it is this order
 
-Nothing in these documents works from the documents alone. What follows is the sequence we turn it on in, the
-argument for that sequence rather than another, and what has to be true before the next step starts. Most of
-the checkpoints are a check failing on purpose, because a green check on a repository where nothing has ever
-been red tells you only that nothing has been tried.
+**This is a sequence, not a schedule.** An earlier version of this document numbered the steps as days, and
+that was a mistake worth naming: it invited people to ask which day they were on rather than what was already
+true, and it implied that a step could be reached by waiting. Nothing here is reached by waiting. Do the whole
+sequence in an afternoon or spread it over a month — the calendar is yours. What is not yours is the **order**,
+because several of these steps make a later one impossible if taken in the wrong sequence, and two of them
+deadlock the repository outright.
+
+Most checkpoints are a check failing on purpose. A green check on a repository where nothing has ever been red
+tells you only that nothing has been tried.
 
 The whole ordering follows one rule: **turn on the check that tells the truth about the other checks first.**
 Our pilot repository had an excellent CI pipeline that had run zero times, and a context file claiming branch
 protection that did not exist. Every later check inherits its meaning from the perimeter being real. So the
 perimeter goes on before it has anything to assert, in order that the first thing it does is fail.
 
-| When | What turns on | Checkpoint passes when |
+| Step | What turns on | Checkpoint passes when |
 |---|---|---|
-| Day 0 | remote, runner, owners, tracker fields | `git remote -v` resolves; three tracker fields exist |
-| Day 1 | branch protection + `perimeter` | perimeter run #1 is **red**, run #2 is green |
-| Day 2 | `size` required | a 500-line pull request cannot merge |
-| Day 3 | `spec` required | a code-first branch cannot merge |
-| Day 4 | `verify` + `gates` required | an uncovered line and a mixed commit both fail |
-| Day 5 | `review` running, **not** required | a review comment is posted; merge is still possible |
-| Weeks 2–3 | one internal project, eight tickets | every gate has failed at least once, for cause |
-| Week 4 | `review` required, if its numbers earned it | 30 findings, dismissal under 1 in 3 over a rolling 20 |
-| Week 5 | first client project, Standard depth | Setup ends with a page live in dev |
+| 1 | remote, runner, owners, tracker fields | `git remote -v` resolves; three tracker fields exist |
+| 2 | **delete the gates you cannot wire** | `perimeter` classifies every workflow that remains |
+| 3 | branch protection + `perimeter` | perimeter run #1 is **red**, run #2 is green |
+| 4 | `size` required | a 500-line pull request cannot merge |
+| 5 | `spec` required | a code-first branch cannot merge |
+| 6 | `verify` + `gates` required | an uncovered line and a mixed commit both fail |
+| 7 | `review` running, **not** required | a review comment is posted; merge is still possible |
+| 8 | one internal project, eight tickets | every gate has failed at least once, for cause |
+| 9 | `review` required, if its numbers earned it | 30 findings, dismissal under 1 in 3 over a rolling 20 |
+| 10 | first client project, Standard depth | Setup ends with a page live in dev |
 
-Before day 0, read [the first run](19-first-run.md). It is the pre-mortem for everything below — how to
-choose a first project so the process is exercised rather than performed, and the two dozen things that
-will bite while you run it. Most of them look like success, which is why they are worth reading before
-anyone is under time pressure.
+### The three orderings that are load-bearing
 
-## Day 0 — the decisions no workflow can make for you
+Not stylistic preferences. Each was found by nearly walking into it on a real host.
+
+**Steps 1–2 before step 3, or you cannot repair what you broke.** Deleting the gates you cannot wire is
+around 500 lines, which trips the size ceiling — correctly, because removed enforcement is the change class
+that most deserves reading. But once protection is on, the override is a label that
+[finding 61](../research/findings.md) proves an author cannot grant themselves. So the deletion happens
+before protection, not after.
+
+**A `CODEOWNERS` that resolves, before code-owner review is required.** GitHub ignores an owner it cannot
+resolve, so a file naming a non-existent team silently protects nothing — and requiring review against it
+deadlocks the branch, because the file that must approve its own repair is the broken one. The instinct is
+the reverse order.
+
+**The spec alone in the first commit, the board entry second, implementation third.** Two of our own rules
+collide otherwise: `spec.yml` wants the spec to be the branch's first commit *and alone in it*, and also
+wants a board entry to exist. `break-it` can never find this, because it tests each gate in isolation.
+
+Before step 1, read [the first run](19-first-run.md). It is the pre-mortem for everything below — how to
+choose a first project so the process is exercised rather than performed, and the two dozen things that will
+bite while you run it. Most of them look like success, which is why they are worth reading before anyone is
+under time pressure.
+
+## Step 1 — the decisions no workflow can make for you
 
 **A remote, on the host you intend to keep.** The pilot's entire failure was downstream of not having one.
 
@@ -64,7 +89,32 @@ provable in a fortnight. *The process is faster* is not, at any ticket count you
 person who asks about sample size wins that argument. Pick the first, and then the most valuable thing you
 can show is what got blocked.
 
-## Day 1 — branch protection, and the check that reads it
+## Step 2 — delete the gates you cannot wire
+
+This step exists because of the one failure mode this standard is least able to survive: a check list where
+every row is red.
+
+The starter ships more gates than a new repository can satisfy. `review` needs an API key. `verify` needs six
+package scripts wired to a real stack. `deploy` and `promote` need environments. Each of those fails loudly
+rather than skipping — deliberately, because a gate that quietly does nothing shows a green check for work
+nobody read. But **"wired and broken" and "not wired yet" render as the same red X**, and six permanent
+failures teach everyone to stop reading the list. After that, a real failure is indistinguishable from noise.
+
+So delete what you cannot wire *now*, and record it as owed. `perimeter.yml` makes the deletion visible rather
+than quiet: every workflow must appear in exactly one of `REQUIRED_CHECKS`, `ADVISORY_CHECKS` or
+`NOT_A_GATE`, asserted in **both** directions — an unclassified workflow fails the perimeter, and so does a
+classified name whose file has gone. You cannot delete a gate and forget that you did.
+
+**Checkpoint: `perimeter` accounts for every workflow file that remains, and the pull request template's check
+list has no permanent reds.** On the repository where this was worked out, deleting five unwirable gates took
+it from six reds per pull request to all-green — with the only remaining block being the review requirement,
+which is the one that *should* block.
+
+Then wire them back one at a time, each with the checkpoint from its own step below. A gate added because
+somebody got the key today is a normal change; a gate that has been red since the repository was created is
+furniture.
+
+## Step 3 — branch protection, and the check that reads it
 
 Clone the starter, `bun install`, `bun run setup` — that installs the Lefthook hooks, which are hints and not
 gates — then push to `main`. Add the `PERIMETER_TOKEN` secret: a fine-grained token with
@@ -132,7 +182,7 @@ rows, and the pull request board then shows only checks that mean something.
 
 **Pass condition, run #2: green, printing `The perimeter matches.`**
 
-## Day 2 — the size ceiling
+## Step 4 — the size ceiling
 
 Reviewability is what every human gate downstream depends on, so it goes on before any of them.
 
@@ -151,7 +201,7 @@ line on that exclude list is review you are not doing, which is why the list sta
 decision, refused when the author labels their own pull request, and counted as a shortcut in
 [the six numbers](11-measurement.md).
 
-## Day 3 — the spec gate
+## Step 5 — the spec gate
 
 Now that diffs are small, make them planned. Two probes: a branch named in lowercase, which must fail on the
 ticket id; and a branch whose first commit is code and whose second is the spec, which must fail on the spec
@@ -164,7 +214,7 @@ cannot prove a person read it. Approval is a review state on the host, and `peri
 host is configured to require one. Whether anyone read the spec is not observable by anything, ever. Do not
 write "spec reviewed" anywhere as though it were evidence.
 
-## Day 4 — verify and gates
+## Step 6 — verify and gates
 
 `verify` fails until you wire it. The starter's `format:check` script is literally an echo followed by
 `exit 1`, on purpose: a repository that documents six gates and runs four reports green for the two it never
@@ -184,7 +234,7 @@ mixes a gate change with implementation. Add `continue-on-error: true` to a work
 `gates` catches tests that *became* weaker. It cannot catch a test that was always weak. A 78% suite at a 31%
 mutation score passes everything here, which is exactly why whole-repo coverage is not a gate for us.
 
-## Day 5 — the review agent, running and not required
+## Step 7 — the review agent, running and not required
 
 Add `ANTHROPIC_API_KEY`. `review.yml` posts one comment per pull request through the review agent, with tools
 limited to `Read,Grep,Glob,Bash(git *),Bash(gh pr *)` — it cannot write. Leave `review` out of the host's
@@ -199,7 +249,7 @@ Start counting dismissals from the first finding. We have no measured accuracy f
 published picture is unflattering: across 19,450 pull requests (April 2026), those reviewed only by an agent
 merged at 45.20% against 68.37% for human-only review. That is why it blocks nothing yet.
 
-## Weeks 2–3 — one internal project, end to end
+## Step 8 — one internal project, end to end
 
 Not client work. The point is to find out what these documents got wrong while nobody is paying for the
 answer. Pick something whose cost of being wrong is Light — nothing to undo, no money, no personal data — and
@@ -250,7 +300,7 @@ failure message the agent then self-heals from, an escalation arriving and being
 divergence field non-empty with the design document fixed in the same pull request, and one honest gap in the
 evidence. Nobody is impressed by an agent writing code; that is table stakes now.
 
-## Week 4 — the review agent's decision point
+## Step 9 — the review agent's decision point
 
 Block on it when it has produced **at least 30 findings** and its dismissal rate is **under one in three over
 a rolling twenty pull requests** — the same threshold and window [the six numbers](11-measurement.md) defines,
@@ -264,7 +314,7 @@ rather than a benchmark. One in three dismissed is that bar restated for our cou
 the agent stays advisory and you tune its prompt. A required check people learn to click past is worse than an
 advisory one they read.
 
-## Week 5 onward — the first client project, at Standard
+## Step 10 — the first client project, at Standard
 
 Standard, not High. High adds mutation floors on core logic, production defined in code, a load test, a threat
 model, a restore drill and a second reviewer on protected paths. Doing all of that for the first time on the

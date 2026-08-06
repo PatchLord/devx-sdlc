@@ -123,6 +123,25 @@ override can widen the committed policy and nobody will see the diff. We keep th
 alternative — committing one developer's local tool permissions into everyone's repository — is worse, but
 it is a hole and you should know it is there.
 
+Two later lines ignore `.claude/.loop/` and `.claude/.hooks-health/`. Both are derived per-clone state: the
+first holds the loop guard's per-ticket continuation count, the second one small file per hook recording
+that the hook fired. Neither is a fact about the project. Both are facts about this working copy, and a
+second clone's answers are legitimately different ones.
+
+The heartbeat is where committing it does real damage. `scripts/hook-health.mjs` exists to tell a hook that
+runs on every tool call apart from one that is registered and has never fired, because from the outside
+those two look identical. It answers that from the timestamps in `.claude/.hooks-health/`. Commit one and it
+travels: a machine where the hook has never run once reads as firing, because somebody else's session wrote
+the file. **The absence the check exists to reveal becomes invisible, and it is the committed file that
+hides it.**
+
+The mistake worth keeping is in how those two lines were first written — with the reason on the same line,
+`.claude/.loop/  # derived, never commit`. **git has no trailing comments.** The `#` and everything after it
+became part of the pattern, the pattern matched no path, and `.claude/.hooks-health/` turned up as untracked
+in `git status` with a rule sitting directly above it that read as correct. Nothing failed. There was simply
+an ignore rule that ignored nothing, which is the quietest way a config file can be wrong. The comment now
+sits on its own lines above the patterns, where git leaves it alone, and says this.
+
 `.gitattributes` sets `* text=auto eol=lf` before the first commit. A mixed-line-ending repository makes
 every later diff unreadable and makes the `size` check count lines that did not change, which turns a
 50-line ticket into a 400-line failure for no reason anybody can see. Lockfiles are marked
@@ -151,6 +170,12 @@ coverage/
 
 # agent-produced evidence, uploaded by evidence.yml rather than committed
 .evidence/
+
+# Derived, per-clone session state — never committed.
+# NOTE: git has no trailing comments. `.claude/.loop/  # why` makes the comment part of the pattern, so the
+# rule silently matches nothing. It did, briefly, and .claude/.hooks-health/ showed up as untracked.
+.claude/.loop/
+.claude/.hooks-health/
 ```
 
 `.gitattributes`
@@ -213,7 +238,8 @@ coverage is one you earned.
     "format:check": "echo 'Wire format:check to your formatter (e.g. prettier --check) \u2014 see README.md' && exit 1",
     "coverage:changed": "bun scripts/changed-line-coverage.mjs",
     "setup": "lefthook install",
-    "test:file": "bun test"
+    "test:file": "bun test",
+    "selftest": "node scripts/self-test.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",
@@ -357,25 +383,92 @@ rest of your `CLAUDE.md` edits, since it is a protected path and each edit costs
 
 ## `.claude/settings.json`
 
-Two lists. `deny` is for actions with no legitimate use inside a ticket: force-push, push to `origin main`,
+Two halves, doing two unrelated kinds of work. `permissions` refuses tool calls. `hooks` runs a command when
+the harness reaches a named event. Nothing else is in the file.
+
+### The permission lists
+
+`deny` is for actions with no legitimate use inside a ticket: force-push, push to `origin main`,
 `--no-verify` and its `-n` short form, `gh pr merge`, `gh pr review --approve`, `gh api --method DELETE`,
 label manipulation through any of its four spellings, and reading `.env`, `.env.*`, `*.pem` or `id_rsa*`.
+Read that list as one sentence rather than fifteen entries: **an agent may not merge its own work, approve
+its own work, rewrite the history that records what it did, skip the local checks, or read a credential.**
+
 `ask` is for actions that are sometimes right and always worth a human keystroke: `git rebase`,
 `git reset --hard`, `rm -rf`, and edits to `.github/workflows/`, `CODEOWNERS`, `lefthook.yml`, `CLAUDE.md`,
-`.claude/**` and `docs/design/criteria/**`.
+`.claude/**`, `docs/design/criteria/**`, `docs/practices.md` and `scripts/lib/**`. The last two are the
+newest and the least obvious. `docs/practices.md` is what the learning loop appends to, so an edit there can
+lower the bar the loop is supposed to raise; `scripts/lib/` holds the readings several gates share — one
+parser, one fact collector, one criteria resolver — so an edit there changes what several checks believe
+without appearing in any of them.
+
+**This half refuses, which makes it tier 1, and refusal is rare among the files in this document.** Almost
+everything else here advises: a rule in `CLAUDE.md` that a session may skim, a `CODEOWNERS` line that holds
+only because the host enforces code-owner review, a hook that regenerates a table. A `deny` entry does not
+advise. The harness declines the call before the tool runs, and there is no argument the session can make to
+it — no explanation, no urgency, no reasoning that this ticket is the exception, because the refusal is not
+addressed to the model and the model is not consulted. The only other thing here with that property is the
+loop guard below.
+
+The ceiling on its worth is **reach, not softness**, and the distinction matters because the two failure
+modes look nothing alike. Patterns match strings, so a spelling nobody listed gets through and an agent with
+`Bash` can read `.env` with `cat`. `.claude/settings.local.json` can widen the committed policy and is
+gitignored, so a local override never appears in a review. And it constrains our session, not the host: the
+push and merge denials matter because branch protection and the merge button live somewhere no file can
+reach, and the `ask` entries on gate paths matter because `CODEOWNERS` requires a second person there.
+Inside the session it genuinely refuses. Outside the session it does not exist.
 
 The label entries look fussy next to the rest and they are the most specific thing in the file. They are
 there because `size.yml` honours a `size-override` label. An agent that can apply a label can grant itself
 the override, which turns the size ceiling into a suggestion it controls. Denying `gh pr edit --add-label`
 alone would not do it, so the deny list names the label API four ways.
 
-Be clear about what this file is worth. It is a harness-side filter on tool calls, not a gate. Patterns
-match strings, so a variant nobody listed gets through, and an agent with `Bash` can read `.env` with
-`cat`. The committed file can be widened by `.claude/settings.local.json`, which is gitignored, so a local
-override is invisible in review. Every entry here has a hard counterpart elsewhere: the push and merge
-denials are real only because branch protection and the merge button live on the host, and the `ask`
-entries on gate paths are real only because `CODEOWNERS` requires a second person on those paths. Read this
-file as friction that removes the easy mistake, and nothing more.
+Worth recording that the reference implementation we benchmarked against takes the opposite trade.
+`awslabs/aidlc-workflows` pre-approves `Read`, `Edit`, `Write` and broad `Bash` so that its workflows run end
+to end without stopping for a prompt, and puts its refusals in a `PreToolUse` guard script instead. That is
+coherent against a different objective: theirs is *do not interrupt the run*, ours is *do not let the run do
+the five things it must never do*. Ours costs prompts and we accept them. Theirs moves the deny surface into
+a file the agent can also read, and asks a script to decide what a shell command will do by parsing it —
+which is guessing at a language designed to be composed.
+
+### The hooks
+
+Four events, one command each.
+
+| Event | Command | What it is for |
+|---|---|---|
+| `SessionStart` | `scripts/orient.mjs` | puts the branch's derived position in front of the model; silent when the branch carries no ticket |
+| `UserPromptSubmit` | `scripts/human-turn.mjs` | mints one human turn — presence only, never the prompt text |
+| `PostToolUse`, matching `Write`, `Edit`, `MultiEdit` | `scripts/board.mjs --index`, then `--html` | regenerates the board's index and view, so neither is ever something to remember |
+| `Stop` | those two, then `scripts/stop-guard.mjs` | regenerates the board, then decides whether the session may stop |
+
+None of the first three is enforcement. Orientation injects context and nothing verifies the model read it;
+the human turn records that a prompt arrived and cannot say who sent it; the board regeneration is a
+convenience whose hard counterpart is `board.mjs --check` running in CI. Only the `Stop` guard refuses
+anything, and it refuses inside our session only.
+
+The `Stop` command is the one to read carefully, because its shape is a decision rather than a style:
+
+```
+node scripts/board.mjs --index >/dev/null 2>&1; node scripts/board.mjs --html >/dev/null 2>&1; node scripts/stop-guard.mjs
+```
+
+Two departures from the `PostToolUse` line above it, and both are load-bearing. **A `Stop` hook's stdout is
+the decision object.** The harness reads what the command printed, and a `{"decision":"block"}` there is the
+whole mechanism that holds a session in its loop. Board chatter on that channel is not noise to be tolerated;
+it is a malformed decision. So the two board commands are sent to `/dev/null` and only `stop-guard.mjs` is
+allowed to speak.
+
+And the three are separated by `;`, not `&&`. Under `&&` a board failure — a parse error in `board.md`, a
+file the process cannot write — exits non-zero and `stop-guard.mjs` never runs, which means the thing that
+decides whether the session may stop is switched off by the thing that regenerates a table. **The loop guard
+has to run whether or not anything before it succeeded**, and `;` is what makes that true. The `PostToolUse`
+line keeps `&&` because nothing follows it to protect and its output goes nowhere that matters.
+
+One thing this arrangement cannot do, and it is the same shape as the two traps below: a hook that is
+registered but whose script is absent, or one that quietly stopped firing, looks from the outside exactly
+like a hook running on every call. That is what the heartbeats under `.claude/.hooks-health/` are for, read
+by `scripts/hook-health.mjs`, and it is tier 2 — it makes an absence visible and a person still has to act.
 
 `.claude/settings.json`
 
@@ -408,10 +501,32 @@ file as friction that removes the easy mistake, and nothing more.
       "Edit(./lefthook.yml)",
       "Edit(./CLAUDE.md)",
       "Edit(./.claude/**)",
-      "Edit(./docs/design/criteria/**)"
+      "Edit(./docs/design/criteria/**)",
+      "Edit(./docs/practices.md)",
+      "Edit(./scripts/lib/**)"
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/orient.mjs"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/human-turn.mjs"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit",
@@ -428,7 +543,7 @@ file as friction that removes the easy mistake, and nothing more.
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/board.mjs --index && node scripts/board.mjs --html && node scripts/board.mjs --check"
+            "command": "node scripts/board.mjs --index >/dev/null 2>&1; node scripts/board.mjs --html >/dev/null 2>&1; node scripts/stop-guard.mjs"
           }
         ]
       }
@@ -980,6 +1095,14 @@ fires; that is the only way to know the patterns are right.
 
 # REVIEW.md is deliberately NOT here. It is owned by the team and edited freely, so that changing what
 # gets reviewed never needs an owner's keystroke — see the artefact chapter.
+
+# The learning loop writes here, and only ever by APPENDING. Adding a practice is implementation; weakening or
+# removing one is a gate change, and this line is what makes that asymmetry real rather than stated.
+/docs/practices.md @devx/tech-leads
+
+# The shared readings every gate is built on. One parser, one fact collector, one criteria resolver — a change
+# here changes what several checks believe, without appearing in any of them.
+/scripts/lib/ @devx/tech-leads
 ```
 
 ## `.github/pull_request_template.md`
