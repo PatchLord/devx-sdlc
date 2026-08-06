@@ -259,11 +259,27 @@ which nothing was blocked is a demonstration of a system that does not block.
 
 Showing it to an executive changes the design of the run, and two of the changes are non-obvious.
 
-**Run the ungoverned control FIRST, cold, before the process exists in that repository.** The most
-persuasive exhibit is the same feature built twice — same agent, same model, only the process removed — but
-the comparison is only honest if the control ran without knowing where the defects would be. Build the
-governed version first and you are writing the control already knowing the answers, which is the laundered
-evidence problem in a different costume.
+**Run the ungoverned control FIRST, blind.** The most persuasive exhibit is the same feature built twice —
+same agent, same model, only the process removed — but the comparison is only honest if the control ran
+without knowing where the defects would be. Build the governed version first and you are writing the control
+already knowing the answers, which is the laundered evidence problem in a different costume.
+
+**Blind to the criteria, not deprived of the tools** — and this sentence used to read *before the process
+exists in that repository*, which is wrong in a way that matters. Trying to execute it exposed the error. The
+control ticket should be the write path, and the write path is not ticket one: it needs a schema, an
+authorisation model and a board that renders. Run it on an empty repository and the agent builds a whole
+application, and the two branches are no longer the same ticket. So both branches are cut from a **shared
+baseline commit**, and what the control lacks is the acceptance criteria — not the test harness.
+
+If the baseline already carries a browser-test harness, the control inherits it, and that biases the
+experiment against us. Deliberately. A control that had no way to write a browser test and therefore did not
+write one has demonstrated nothing about process; a control that had the harness sitting there and still
+shipped no button is a much stronger exhibit than one that was handicapped into failing.
+
+The control also gets **the plain ask, not the criterion.** *"The ops team needs to be able to add their own
+tasks to the board"* is what a real ticket says. Hand it the criterion — *a browser test that clicks the
+button, types into the field, submits* — and it passes trivially, because the criterion **is** the gate. That
+one substitution is the whole validity of the comparison.
 
 **Do not bet the demonstration on the ungoverned version being visibly bad.** It often is not. An
 ungoverned agent frequently produces good code, and if the room sees two acceptable branches the argument

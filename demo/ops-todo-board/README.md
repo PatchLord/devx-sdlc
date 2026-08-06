@@ -110,5 +110,13 @@ contract review.
 
 ## What happens next
 
-The four blocking changes get made, the SOW is re-issued for signature, and only then does anything get
-built. The board for this project lives in `tasks/board.md` once the repository exists.
+The four blocking changes landed in v1.0 above, so the front half is done and the build is what remains.
+**How it gets built is [`run-plan.md`](run-plan.md)**, and the non-obvious part of it is the order: the
+ungoverned control branch is cut before the governed one, from a shared baseline, and is given the plain ask
+rather than the acceptance criterion. That document also registers five predictions and four failure
+conditions in advance, so the result cannot be fitted to a narrative afterwards.
+
+Signature is the gate on starting, and it is the reviewer's to give — in this engagement that is one person
+playing several roles, which the run plan commits to stating rather than letting it be discovered.
+
+The board for this project lives in `tasks/board.md` once the repository exists.
