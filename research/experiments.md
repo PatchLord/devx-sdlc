@@ -139,5 +139,74 @@ support matrix and a first-class N/A disposition, never a tech-lead waiver — b
 check labelled non-negotiable teach the org that blocking checks are negotiable. If it is bad, the principle
 stays at tier 2 in `REVIEW.md` and this is recorded as settled.
 
-**Cost.** An afternoon on existing history, and it needs no host. **Status.** not started. Cheapest
-remaining experiment after E1's host half.
+**Cost.** An afternoon on existing history, and it needs no host. **Status.** **DONE, 6 August 2026 —
+hypothesis supported, and it produced a better mechanism than the one it was testing.**
+
+### Result: 11 of 12 failed by assertion
+
+Subject: `iamkun/dayjs`, a public repository — chosen over a client project deliberately, so the result is
+citable and anyone can re-run it. Twelve commits whose message begins `fix` and which touch both `src/` and
+`test/`, from 2023 onward. For each: check out the parent, bring in **only** the test files from the fix, run
+those files, classify the failure. Raw output in [`e6-results.tsv`](e6-results.tsv); harness and `TZ` pinning
+described below because dayjs tests are timezone-sensitive.
+
+| Verdict | Count |
+|---|---|
+| **ASSERTION** — the test ran and its assertion disagreed | **11** |
+| **COLLECTION** — the suite could not load | 1 |
+| PASS-AT-BASE — the test does not catch the bug it claims to | 0 |
+
+Verified rather than trusted, on two of the twelve. `fefdcd4b6` at base produces a real captured pair —
+`Expected "2023-10-28T17:00:00Z"`, `Received "2023-10-28T21:00:00Z"` — and the control the harness did not
+originally run confirms the same file passes 13 of 13 once the fix is applied. So the finding is fail-at-base
+*and* pass-at-fix, which is what the gate actually requires.
+
+### The single exception is the whole point
+
+`6a42e0d73` is labelled `fix: Add NegativeYear Plugin support` and it **adds a new file**. At the base commit
+the test cannot resolve `../../src/plugin/negativeYear`, so it fails with `Cannot find module`. It is a
+feature wearing a `fix:` label, and it is the only one of the twelve that behaved that way.
+
+**So the discriminator is not the language, and it is not the test runner. It is whether the change modifies
+existing behaviour or introduces a new symbol.** That reframes the mechanism:
+
+> A bug fix, by definition, changes behaviour that already exists — so its test compiles and loads at the
+> base commit and fails on the value. A change that adds a new export is not a bug fix in this sense, however
+> its commit message is worded.
+
+### What this changes about how to build it
+
+ADS-1's own correction asked for a per-language support matrix and routed unsupported cases through a
+tech-lead waiver — while elsewhere warning that routine waivers on a check labelled non-negotiable "spend the
+one budget of gate credibility". This result removes that tension, because **the N/A case can be decided
+mechanically instead of by a person**:
+
+- Run the new test at the base commit.
+- If it fails with an **assertion** and a captured expected/actual pair: the proof is stored, the gate is
+  satisfied.
+- If it fails because an import or symbol **does not exist at base**: this is not a behaviour fix, the gate
+  records **N/A with the unresolved import as the reason**, and no waiver is involved.
+- If it **passes**: the gate fails, and it has caught the thing it exists to catch — a test shipped with a
+  fix that does not detect the bug. None of the twelve did this, which is worth knowing and is not the same
+  as it never happening.
+
+No support matrix is needed for that. The three outcomes are distinguishable from the test runner's own
+report on any runner that separates a load failure from an assertion failure, which jest, vitest and pytest
+all do.
+
+### What this does not establish
+
+- **One repository, one language, no compile step.** dayjs is pure functions over dates. A compiled language
+  would surface the new-symbol case as a compile error rather than a module-resolution error — the same
+  bucket, reached differently — but the behaviour case should be identical.
+- **The selection is biased toward the answer, and deliberately so.** Filtering for `fix:` commits that touch
+  both source and tests selects for exactly the class red-on-base targets. That is the correct population to
+  measure, and it is *not* evidence about what fraction of all commits the gate can cover.
+- **n = 12.** Enough to kill the hypothesis had most failed on collection; not enough to put a percentage in
+  front of a client, and none appears in these documents.
+- `TZ` was pinned to `America/New_York`. dayjs's own test script runs four timezones, so a different pin
+  could move an individual case, though not the assertion-vs-collection split.
+
+**Then what, now that it is answered.** It becomes a sixth gate, and the next step is building it for one
+language. That is real work — checking out a base commit, applying only the test paths, parsing a
+machine-readable report — so it goes on the board as a ticket rather than into this file as a claim.

@@ -1,0 +1,12 @@
+8fda602be	2026-03-16	ASSERTION	Tests:       2 failed, 58 passed, 60 total	fix: preserve unsupported year tokens in format (#
+99691c5f3	2026-03-12	ASSERTION	Tests:       1 failed, 6 passed, 7 total	fix: update updateLocale plugin to merge nested ob
+269a7a9cf	2025-10-27	ASSERTION	Tests:       3 failed, 6 passed, 9 total	fix: added usage warnings for diff + updated unit 
+9e9f76cf1	2025-09-09	ASSERTION	Tests:       1 failed, 2 passed, 3 total	fix: replace italian locale "un' ora fa" with "un'
+fefdcd4b6	2025-08-27	ASSERTION	Tests:       1 failed, 12 passed, 13 total	fix: .utcOffset(0, true) result and its clone are 
+8ca74f178	2024-08-10	ASSERTION	Tests:       2 failed, 55 passed, 57 total	fix: customParseFormat supports Q quter / w ww wee
+b575c81a8	2024-07-18	ASSERTION	Tests:       1 failed, 38 passed, 39 total	fix: timezone plugin currect parse UTC tz (#2693)
+d0e6738a6	2024-07-18	ASSERTION	Tests:       1 failed, 6 passed, 7 total	fix: Fix zero offset issue when use tz with locale
+6a42e0d73	2024-05-12	COLLECTION	Cannot find module '../../src/plugin/negativeYear'	fix: Add NegativeYear Plugin support  (#2640)
+4f4501256	2023-09-19	ASSERTION	Tests:       1 failed, 30 passed, 31 total	fix: fix timezone plugin to get correct locale set
+5470a15e4	2023-09-19	ASSERTION	Tests:       1 failed, 1 total	fix: Update Slovenian locale for relative time (#2
+361be5c7c	2023-09-19	ASSERTION	Tests:       1 failed, 3 passed, 4 total	fix(locale): add meridiem in `ar` locale (#2418)
