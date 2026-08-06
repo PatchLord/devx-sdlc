@@ -1,8 +1,8 @@
 # The repository
 
-Everything the agent side of this process needs, as files: forty-seven of them, plus three `.gitkeep`
+Everything the agent side of this process needs, as files: forty-nine of them, plus three `.gitkeep`
 markers and one generated view. This document gives you the twenty-three it owns in full, in the order you
-would create them, and tells you where the other twenty-four live.
+would create them, and tells you where the other twenty-six live.
 
 The reason to start from a template rather than a checklist is our own estimate: hand-built, this takes
 about a fortnight, the result depends on who did it, and the parts that get dropped under pressure are the
@@ -43,6 +43,7 @@ devx-starter/
 │   │   ├── perimeter.yml         the host enforces what this repo claims
 │   │   ├── scan.yml              the host's alert state, daily, whole tree
 │   │   ├── evidence.yml          .evidence/ attached to the pull request
+│   │   ├── red-on-base.yml       does the new test catch its own bug?
 │   │   ├── deploy.yml            merge to main deploys to dev
 │   │   └── promote.yml           dev to staging to production, by hand
 │   └── pull_request_template.md  criteria, evidence, learnings, what is unverified
@@ -69,6 +70,7 @@ devx-starter/
 │   ├── changed-line-coverage.mjs
 │   ├── collect-week.mjs          the weekly hour's raw material, assembled
 │   ├── board.mjs                 check the board, rebuild its index and view
+│   ├── red-on-base.mjs           runs new tests against the base commit
 │   └── break-it.mjs              proves each gate rejects what it claims to, offline
 ├── CLAUDE.md                     the rules that are always true
 ├── REVIEW.md                     review criteria, owned by the team
@@ -208,9 +210,10 @@ coverage is one you earned.
   "scripts": {
     "verify": "bun scripts/verify.mjs",
     "scan:secrets": "bun scripts/scan-secrets.mjs",
-    "format:check": "echo 'Wire format:check to your formatter (e.g. prettier --check) — see README.md' && exit 1",
+    "format:check": "echo 'Wire format:check to your formatter (e.g. prettier --check) \u2014 see README.md' && exit 1",
     "coverage:changed": "bun scripts/changed-line-coverage.mjs",
-    "setup": "lefthook install"
+    "setup": "lefthook install",
+    "test:file": "bun test"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",
@@ -960,6 +963,11 @@ fires; that is the only way to know the patterns are right.
 /stylelint.config.*        @devx/tech-leads
 /docs/production-ready.md  @devx/tech-leads
 
+# Every check script. gates.yml names them individually so a mixed commit fails, but that list needs
+# extending each time one is added — this line covers the next one before anyone remembers to. Wiring
+# guide says to add this as step one; the starter now ships with it.
+/scripts/                  @devx/tech-leads
+
 # REVIEW.md is deliberately NOT here. It is owned by the team and edited freely, so that changing what
 # gets reviewed never needs an owner's keystroke — see the artefact chapter.
 ```
@@ -1047,7 +1055,7 @@ files it describes are.
 
 `README.md`
 
-`````markdown
+````markdown
 # devx AI SDLC — starter repository
 
 Everything the AI SDLC says a repository must have, as working files. Clone it, run one script, wire
@@ -1165,6 +1173,7 @@ The loop is in `.claude/skills/build-loop/SKILL.md`. The rules that are always t
 | `spec` | `spec.yml` | no spec, or a spec that is not the branch's first commit |
 | `verify` | `verify.yml` | the stack gates, plus 80% coverage **on changed lines** |
 | `review` | `review.yml` | a fresh session, gate-surface findings first |
+| `red-on-base` | a new test that would also have passed before the change | **not required at first** — reports, and merging ignores it |
 | `perimeter` | `perimeter.yml` | **the host not enforcing what this repository says it does** |
 | protected paths | `CODEOWNERS` | payments, auth, PII, migrations, and the gate files themselves |
 | fast feedback | `lefthook.yml` | formatting and staged secrets — *hints, not gates* |
@@ -1190,7 +1199,7 @@ on the host. This repository is honest about which is which, in the files themse
 
 None of this is a reason not to run it. It is what you should say when someone asks whether this is
 covered.
-`````
+````
 
 ## Two traps that fail silently
 

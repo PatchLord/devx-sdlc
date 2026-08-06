@@ -207,6 +207,21 @@ all do.
 - `TZ` was pinned to `America/New_York`. dayjs's own test script runs four timezones, so a different pin
   could move an individual case, though not the assertion-vs-collection split.
 
-**Then what, now that it is answered.** It becomes a sixth gate, and the next step is building it for one
-language. That is real work — checking out a base commit, applying only the test paths, parsing a
-machine-readable report — so it goes on the board as a ticket rather than into this file as a claim.
+**Then what, now that it is answered. BUILT, 6 August 2026.** `red-on-base.yml` and
+`scripts/red-on-base.mjs` in the starter, with the four verdicts above and the mechanical N/A. Not in
+`REQUIRED_CHECKS`: it reports and merging ignores it until it has produced findings on real work, the same
+rule `review` follows.
+
+Proven three ways, because a gate nobody has watched reject anything is indistinguishable from one that
+cannot. Its classifier is self-tested against **real captured runner output**, including the two outputs from
+this experiment, and that self-test runs in CI. And it was run end to end against three throwaway
+repositories: a genuine bug — a discount applied before tax instead of after — classified ASSERTION and
+passed the gate; a commit adding a new module classified NOT-A-BEHAVIOUR-FIX and passed; and a commit
+declaring `fix(ship):` whose test only asserted `typeof === "number"` **failed the gate**, which is the case
+it exists for.
+
+Building it found one defect that no amount of self-testing would have: the gate read **its own stored proof
+back as a test file**, because `.evidence/red-on-base/test_total.test.js.txt` matches a test-path pattern. In
+a repository that gitignores `.evidence/` it would never have surfaced; in one that does not, the gate would
+have reported verdicts on its own output. Selection is now restricted to source extensions with `.evidence/`
+excluded, and the reason is in the script.

@@ -267,7 +267,7 @@ jobs:
               docs/design/criteria/*)                                                     return 0 ;;
               *jest.config*|*vitest.config*|*bunfig.toml|*pytest.ini|*.coveragerc)         return 0 ;;
               scripts/verify.mjs|scripts/scan-secrets.mjs|scripts/changed-line-coverage.mjs) return 0 ;;
-              scripts/board.mjs|scripts/break-it.mjs)                                       return 0 ;;
+              scripts/board.mjs|scripts/break-it.mjs|scripts/red-on-base.mjs)                return 0 ;;
               *codecov.yml|*sonar-project.properties|*.eslintrc*|eslint.config.*)          return 0 ;;
               biome.json|biome.jsonc|.biome.json|ruff.toml|.ruff.toml)                    return 0 ;;
               *) return 1 ;;
@@ -1787,3 +1787,330 @@ a migration, a worker or a refactor legitimately has none — and a check that g
 honest work or teach people to produce a screenshot of nothing. It reports what is there, says plainly
 when there is nothing, and the person reading the criteria table decides. That is one of the few places
 we prefer a warning to a gate, and the reason is that the alternative gate would be dishonest.
+
+## `red-on-base.yml` and `scripts/red-on-base.mjs` — does the test catch its own bug?
+
+Every other check here asks whether the tests pass. This one asks whether they would have **failed before the
+change**. A test that passes against the unfixed code is not evidence of anything, and on a green dashboard it
+is indistinguishable from a real one.
+
+It runs the pull request's new and changed tests against the base commit and classifies how each fails:
+
+| At the base commit | Verdict | What happens |
+|---|---|---|
+| Fails on an **assertion**, with a captured expected/actual | **ASSERTION** | proof stored, check satisfied |
+| Cannot **load** — the symbol did not exist yet | **NOT-A-BEHAVIOUR-FIX** | N/A, and the check passes |
+| **Passes** | PASSED-AT-BASE | fails the check when the change declares a fix; a warning otherwise |
+| Fails in a way the script cannot read | UNCLASSIFIED | **fails**, because a gate that cannot tell must not guess |
+
+**Two design choices are worth the argument.**
+
+*There is no "is this a bug fix?" question.* The standard that proposed this mechanism gated it on a
+conventional-commit prefix and routed everything else through a tech-lead waiver — while elsewhere warning
+that routine waivers on a non-negotiable check spend the one budget of gate credibility. E6 in
+[`research/experiments.md`](../research/experiments.md) shows the question is unnecessary: run the test at
+base and the *outcome* classifies the change. Eleven of twelve real fixes failed on an assertion; the twelfth
+was a commit labelled `fix:` that added a new file, so its test could not resolve its import — which is
+precisely how you detect that something is not a behaviour fix, mechanically, with nobody signing anything.
+
+*Passing at base is only a defect when the change claims to fix something.* A regression test pinning
+behaviour that already works is supposed to pass at base. Telling those apart needs intent, so the check reads
+the commit subjects for a declared fix and warns rather than fails when there is none. That asymmetry is
+deliberate and it is the one place this check takes an author's word for anything.
+
+**What it cannot do**, stated because the gap is easy to miss: it says nothing about whether the assertion is
+the *right* assertion. A test and the code can share a misunderstanding and this will store the proof
+happily — open question D11. It catches a missing proof, not a wrong one.
+
+The classifier is the whole check, so it is tested against **real captured runner output** — including the two
+outputs from E6 — and that self-test runs in CI rather than only on somebody's laptop. It is deliberately not
+in `REQUIRED_CHECKS`: it reports, and merging ignores it, until it has produced findings on real work and its
+N/A rate is known. Same rule as `review`.
+
+### `.github/workflows/red-on-base.yml`
+
+```yaml
+name: red-on-base
+
+# Does the new test actually catch the bug it was written for?
+#
+# Every other check here asks whether the tests pass. This one asks whether they would have FAILED before
+# the change — because a test that passes against the unfixed code is not evidence of anything, and it is
+# indistinguishable from a real test on a green dashboard.
+#
+# It runs the pull request's new and changed tests against the base commit and classifies how each one
+# fails. An assertion failure is proof and gets stored. A failure to even load means the change introduced
+# a new symbol rather than fixing existing behaviour, which is N/A rather than a violation — decided from
+# the runner's own report, with no waiver and no person. A test that PASSES at base fails the check when the
+# change declares a fix.
+#
+# NOT required at first. Turn it on once it has produced findings on real work and its N/A rate is known —
+# same rule as `review`. Until then it reports and merging ignores it, which is the honest state.
+#
+# Evidence for the mechanism, including why there is no "is this a bug fix?" question, is E6 in the SDLC's
+# research/experiments.md: 11 of 12 real fixes in a public repository failed at base on an assertion, and
+# the twelfth was a commit labelled `fix:` that added a file.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  red-on-base:
+    runs-on: arm64
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the base commit has to be reachable, and a worktree is created at it
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # The classifier is the whole gate: if it cannot tell an assertion failure from a suite that never
+      # loaded, a green run means nothing. It is checked against real captured runner output before it is
+      # trusted, and that check runs here rather than only on somebody's laptop.
+      - name: The classifier still works
+        run: node scripts/red-on-base.mjs --self-test
+
+      - name: Run the new tests against the base commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/red-on-base.mjs
+
+      - name: Keep the proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: red-on-base-proof
+          path: .evidence/red-on-base/
+          if-no-files-found: ignore
+          retention-days: 30
+```
+
+### `scripts/red-on-base.mjs`
+
+```javascript
+#!/usr/bin/env node
+// Red-on-base: does the new test actually catch the bug it was written for?
+//
+// A green suite proves the tests that exist pass. It does not prove a test asserts anything. This runs the
+// pull request's new and changed tests against the BASE commit — the code before the fix — and asks how they
+// fail there. A bug fix's test must fail at base, and it must fail on an ASSERTION rather than because a
+// symbol did not exist yet. A test that fails at base with "cannot find module" has proven nothing.
+//
+//   node scripts/red-on-base.mjs              # the gate; BASE_SHA and HEAD_SHA from the environment
+//   node scripts/red-on-base.mjs --self-test  # prove the classifier against real captured runner output
+//
+// WHY THERE IS NO "IS THIS A BUG FIX?" QUESTION. ADS-1, which proposed this mechanism, gated it on a
+// conventional-commit prefix and routed everything else through a tech-lead waiver — while elsewhere warning
+// that routine waivers on a non-negotiable check spend the one budget of gate credibility. Measuring 12 real
+// fixes (research/experiments.md, E6) showed the question is unnecessary: run the test at base and the
+// OUTCOME classifies the change. Eleven failed on an assertion. The twelfth was a commit labelled `fix:`
+// that added a new file, so its test could not resolve its import — which is exactly how you detect that
+// something is not a behaviour fix, mechanically, with no human and no waiver.
+//
+// WHAT IT CANNOT DO. It says nothing about whether the assertion is the RIGHT assertion. A test and the code
+// can share a misunderstanding and this gate will happily store the proof — see open question D11. It
+// catches a MISSING proof, not a wrong one.
+
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync, cpSync } from "node:fs";
+import { join, dirname } from "node:path";
+
+const args = process.argv.slice(2);
+const sh = (cmd, a, opts = {}) =>
+  execFileSync(cmd, a, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...opts });
+
+// ── the classifier ──────────────────────────────────────────────────────────────────────────────────
+// Patterns per runner, kept together and visible so a new stack extends one list. The order matters: a
+// load failure must be recognised BEFORE an assertion pattern, because a suite that failed to load often
+// prints text that looks like an assertion elsewhere in the output.
+const LOAD_FAILURE = [
+  /Test suite failed to run/, // jest
+  /Cannot find module|Failed to load url|ERR_MODULE_NOT_FOUND/, // jest, vitest, node
+  /SyntaxError:|ReferenceError:.*is not defined/, //
+  /ImportError|ModuleNotFoundError|E   NameError/, // pytest
+  /collected 0 items|errors during collection/, // pytest
+  /is not a function|is not a constructor/, // js: the symbol exists as undefined
+];
+const ASSERTION = [
+  /expect\(.*\)\.|Expected value to equal|Expected:.*\n.*Received:/s, // jest, vitest
+  /AssertionError|assert\.|toBe|toEqual|toMatch|toThrow/,
+  /^E\s+assert |^E\s+AssertionError/m, // pytest
+  /FAIL .*\n.*●/s,
+];
+
+export function classify(output, exitCode) {
+  if (exitCode === 0) return { verdict: "PASSED-AT-BASE", why: "the test passes against the unfixed code" };
+  for (const re of LOAD_FAILURE) {
+    const m = output.match(re);
+    if (m) return { verdict: "NOT-A-BEHAVIOUR-FIX", why: `the suite could not load at base: ${m[0].slice(0, 60).trim()}` };
+  }
+  for (const re of ASSERTION) {
+    if (re.test(output)) {
+      const pair = output.match(/Expected[^\n]*\n[^\n]*\n?[^\n]*Received[^\n]*\n[^\n]*/) ||
+                   output.match(/Expected[^\n]{0,80}|Received[^\n]{0,80}/);
+      return { verdict: "ASSERTION", why: (pair?.[0] || "assertion failure").replace(/\s+/g, " ").slice(0, 120) };
+    }
+  }
+  // Never pass on ambiguity. An unclassifiable failure is a gap in this script, and a gate that guesses is
+  // worse than one that admits it cannot tell.
+  return { verdict: "UNCLASSIFIED", why: "the run failed and this script could not tell how" };
+}
+
+// ── self-test: real captured output, not invented text ──────────────────────────────────────────────
+if (args.includes("--self-test")) {
+  const cases = [
+    ["assertion, from dayjs fefdcd4b6 at base", 1,
+     `FAIL test/plugin/utc-utcOffset.test.js\n  ✕ cloning dates modified with utcOffset (5ms)\n\n  ● cloning dates modified with utcOffset\n\n    expect(received).toEqual(expected)\n\n    Expected value to equal:\n      "2023-10-28T17:00:00Z"\n    Received:\n      "2023-10-28T21:00:00Z"\n`,
+     "ASSERTION"],
+    ["load failure, from dayjs 6a42e0d73 at base", 1,
+     `FAIL test/plugin/negativeYear.test.js\n  ● Test suite failed to run\n\n    Cannot find module '../../src/plugin/negativeYear' from 'negativeYear.test.js'\n`,
+     "NOT-A-BEHAVIOUR-FIX"],
+    ["a test that does not catch its own bug", 0, `Tests: 13 passed, 13 total`, "PASSED-AT-BASE"],
+    ["pytest collection error", 1, `ImportError while importing test module 'tests/test_x.py'\nE   ModuleNotFoundError: No module named 'app.new'`, "NOT-A-BEHAVIOUR-FIX"],
+    ["pytest assertion", 1, `    def test_total():\n>       assert total == 300\nE       assert 250 == 300`, "ASSERTION"],
+    ["something this script cannot read", 1, `Segmentation fault (core dumped)`, "UNCLASSIFIED"],
+  ];
+  let bad = 0;
+  for (const [name, code, out, want] of cases) {
+    const got = classify(out, code).verdict;
+    const ok = got === want;
+    if (!ok) bad++;
+    console.log(`  ${ok ? "ok  " : "FAIL"}  ${name.padEnd(44)} ${got}${ok ? "" : ` (wanted ${want})`}`);
+  }
+  console.log(`\n  ${cases.length - bad}/${cases.length} classified correctly`);
+  if (bad) console.log("\n  The classifier is the whole gate. Fix it before trusting a green run.");
+  process.exit(bad ? 1 : 0);
+}
+
+// ── the gate ────────────────────────────────────────────────────────────────────────────────────────
+const BASE = process.env.BASE_SHA;
+const HEAD = process.env.HEAD_SHA || "HEAD";
+if (!BASE) {
+  console.error("::error::BASE_SHA is not set, so there is no base commit to run against.");
+  process.exit(1);
+}
+
+// The command that runs specific test files. Stack-specific, like the six gates in verify.mjs, and it fails
+// loudly when absent rather than skipping — a gate that skips when unwired reports green for work nobody ran.
+const pkg = existsSync("package.json") ? JSON.parse(readFileSync("package.json", "utf8")) : {};
+const RUNNER = process.env.RED_ON_BASE_CMD || (pkg.scripts?.["test:file"] ? "bun run test:file" : null);
+if (!RUNNER) {
+  console.error('::error::No way to run a single test file. Add a "test:file" script to package.json:');
+  console.error('  "test:file": "vitest run"      (or "jest", or "pytest -q")');
+  console.error("It receives one or more test paths as arguments. Or set RED_ON_BASE_CMD.");
+  console.error("This fails rather than skipping, because a gate that skips when unwired is the failure");
+  console.error("it exists to catch.");
+  process.exit(1);
+}
+
+const TEST_RE = /(\.test\.|\.spec\.|_test\.|(^|\/)(tests?|e2e|spec)\/)/;
+// Only real test SOURCE files. Two exclusions, both learned by running this: `.evidence/` holds this
+// gate's own stored proof, and those filenames contain ".test.js" — so without this the gate reads its
+// own output back as a test and reports a verdict on it. And a fixture or snapshot named like a test is
+// not a test.
+const SOURCE_EXT = /\.(js|jsx|mjs|cjs|ts|tsx|mts|cts|py|rb|go|java|kt|cs|php)$/;
+const NOT_A_TEST = /^\.evidence\/|^\.red-on-base-worktree\/|(^|\/)__snapshots__\/|\.snap$/;
+const changed = sh("git", ["diff", "--name-status", "--diff-filter=AM", `${BASE}...${HEAD}`])
+  .split("\n").filter(Boolean)
+  .map((l) => l.split("\t"))
+  .filter(([, p]) => p && TEST_RE.test(p) && SOURCE_EXT.test(p) && !NOT_A_TEST.test(p))
+  .map(([status, p]) => ({ status, path: p }));
+
+if (!changed.length) {
+  console.log("No test files added or changed in this pull request. Nothing for this gate to prove.");
+  process.exit(0);
+}
+
+console.log(`Running ${changed.length} changed test file(s) against ${BASE.slice(0, 9)} — the code before this change.\n`);
+
+// A worktree, so the checkout cannot disturb the working copy CI is using. node_modules is not copied by
+// git, so it is linked from the main tree: dependency changes inside the same pull request are a known
+// limitation, reported rather than hidden.
+const WT = ".red-on-base-worktree";
+rmSync(WT, { recursive: true, force: true });
+sh("git", ["worktree", "add", "--detach", "-f", WT, BASE]);
+if (existsSync("node_modules")) {
+  try { sh("ln", ["-s", join(process.cwd(), "node_modules"), join(WT, "node_modules")]); } catch { /* windows, or already there */ }
+}
+
+const results = [];
+try {
+  for (const { status, path } of changed) {
+    // the test as this pull request writes it, against the code as it was before
+    const content = sh("git", ["show", `${HEAD}:${path}`]);
+    mkdirSync(join(WT, dirname(path)), { recursive: true });
+    writeFileSync(join(WT, path), content);
+
+    let out = "", code = 0;
+    try {
+      out = execFileSync("sh", ["-c", `${RUNNER} ${JSON.stringify(path)}`],
+        { cwd: WT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { code = e.status ?? 1; out = (e.stdout || "") + (e.stderr || ""); }
+
+    const { verdict, why } = classify(out, code);
+    results.push({ path, status, verdict, why, out });
+    const icon = { ASSERTION: "✓", "NOT-A-BEHAVIOUR-FIX": "–", "PASSED-AT-BASE": "✗", UNCLASSIFIED: "?" }[verdict];
+    console.log(`  ${icon} ${verdict.padEnd(20)} ${path}\n      ${why}`);
+  }
+} finally {
+  sh("git", ["worktree", "remove", "--force", WT]);
+}
+
+// ── the proof, stored ───────────────────────────────────────────────────────────────────────────────
+const dir = ".evidence/red-on-base";
+mkdirSync(dir, { recursive: true });
+for (const r of results) {
+  writeFileSync(join(dir, r.path.replace(/[/\\]/g, "_") + ".txt"),
+    `${r.path}\nbase: ${BASE}\nverdict: ${r.verdict}\n${r.why}\n\n${"-".repeat(70)}\n${r.out}`);
+}
+writeFileSync(join(dir, "summary.md"),
+  `# Red-on-base against \`${BASE.slice(0, 9)}\`\n\n| | Test | Verdict | |\n|---|---|---|---|\n` +
+  results.map((r) => `| ${r.status} | \`${r.path}\` | **${r.verdict}** | ${r.why} |`).join("\n") + "\n");
+
+// ── the verdict ─────────────────────────────────────────────────────────────────────────────────────
+const unclassified = results.filter((r) => r.verdict === "UNCLASSIFIED");
+const passed = results.filter((r) => r.verdict === "PASSED-AT-BASE");
+const proven = results.filter((r) => r.verdict === "ASSERTION");
+const na = results.filter((r) => r.verdict === "NOT-A-BEHAVIOUR-FIX");
+
+console.log(`\n${proven.length} proven by assertion · ${na.length} not a behaviour fix · ${passed.length} passed at base · ${unclassified.length} unclassified`);
+console.log(`Proof stored in ${dir}/`);
+
+if (unclassified.length) {
+  console.error(`\n::error::${unclassified.length} test run(s) failed at base in a way this script cannot classify.`);
+  unclassified.forEach((r) => console.error(`  ${r.path}`));
+  console.error("Read the stored output. Then either extend LOAD_FAILURE/ASSERTION in this script — in its");
+  console.error("own commit, because it is a gate — or say in the pull request why this case is different.");
+  console.error("It fails rather than passing, because a gate that cannot tell must not guess.");
+  process.exit(1);
+}
+
+// Passing at base is only a DEFECT when the change claims to fix something. A regression test that pins
+// behaviour which already works is supposed to pass at base, and telling the two apart needs intent.
+const declaresFix = /(^|\n)fix(\(|:)/i.test(sh("git", ["log", "--format=%s%n%b", `${BASE}..${HEAD}`]));
+if (passed.length && declaresFix) {
+  console.error(`\n::error::This change declares a fix, and ${passed.length} of its tests pass against the unfixed code.`);
+  passed.forEach((r) => console.error(`  ${r.path}`));
+  console.error("So those tests do not catch the thing being fixed. Either the test needs to assert the");
+  console.error("behaviour that was actually wrong, or the fix is not the fix. This is the case the gate");
+  console.error("exists for, and it is worth the interruption.");
+  process.exit(1);
+}
+if (passed.length) {
+  console.log(`\n::warning::${passed.length} test(s) pass against the base commit. Legitimate for a regression`);
+  console.log("test pinning behaviour that already worked; not legitimate if it was meant to catch a defect.");
+  console.log("Nothing in this change declared a fix, so this is a warning rather than a failure.");
+}
+console.log("\nRed-on-base satisfied.");
+```
