@@ -1193,7 +1193,22 @@ jobs:
           fi
 
           # ── what we claim ────────────────────────────────────────────────────────────────────
-          REQUIRED_CHECKS="size gates spec verify review"
+          # Every workflow in this repository must appear in exactly one of these three lists. That is
+          # what makes the wall-of-red problem impossible: a gate this project cannot yet wire gets
+          # DELETED and struck from the list, in one visible commit, rather than left failing forever.
+          #
+          # Three states, and the third is the one people get wrong:
+          #   REQUIRED  — blocks the merge. Wired, and the host enforces it.
+          #   ADVISORY  — runs and reports; merging ignores it. Earning its slot, or informational.
+          #   NOT-A-GATE— never a pull-request check at all: scheduled, dispatched, or a deploy.
+          #
+          # A gate left installed but unwired fails on every pull request, and six permanent reds
+          # teach everyone to stop reading the list — after which a real failure is indistinguishable
+          # from the noise. That is the failure this whole repository exists to prevent, arriving
+          # through the back door. So: if you cannot wire it, delete it and record it as *to build*.
+          REQUIRED_CHECKS="size gates spec verify"
+          ADVISORY_CHECKS="review red-on-base evidence"
+          NOT_A_GATE="perimeter scan deploy promote"
           REQUIRED_APPROVALS=1
           # ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -1297,6 +1312,25 @@ jobs:
           elif [ "$ADMINS" != "true" ]; then
             echo "::warning::Administrators are exempt from these rules. Defensible on a small team; know that it means the perimeter holds only as long as everyone chooses to respect it."
           fi
+
+          # ── every workflow is classified, and every claim has a file ──
+          # Catches both directions of drift: a workflow added and never classified, and a name we
+          # still claim to enforce whose file somebody deleted.
+          echo "── the workflow inventory ──"
+          ALL_LISTED="$REQUIRED_CHECKS $ADVISORY_CHECKS $NOT_A_GATE"
+          for F in .github/workflows/*.yml; do
+            [ -e "$F" ] || continue
+            NAME=$(basename "$F" .yml)
+            case " $ALL_LISTED " in
+              *" $NAME "*) ;;
+              *) fail "Workflow '$NAME' is not classified as REQUIRED, ADVISORY or NOT-A-GATE in this file. An unclassified workflow is one nobody has decided the status of, and it will sit red or green without meaning either." ;;
+            esac
+          done
+          for NAME in $ALL_LISTED; do
+            [ -f ".github/workflows/$NAME.yml" ] \
+              || fail "This file claims '$NAME' but .github/workflows/$NAME.yml does not exist. Either restore it or strike the name — a claim with no file behind it is the pilot's failure exactly."
+          done
+          echo "Every workflow is classified, and every classified name has a file."
 
           echo "── the files that define the perimeter ──"
           for F in CODEOWNERS CLAUDE.md .github/workflows/size.yml .github/workflows/gates.yml .github/workflows/spec.yml; do

@@ -109,11 +109,26 @@ respect it. That choice belongs to a named person recorded in the setup notes, n
 
 Two details that will otherwise cost you an afternoon. **Do not require `perimeter` as a pull request status
 check** — it runs on a Monday 07:00 UTC schedule, on push to `main`, and on dispatch, never on pull requests,
-so requiring it blocks every pull request permanently. And on day 1, edit line 82 of `perimeter.yml` from
-`REQUIRED_CHECKS="size gates spec verify review"` to `REQUIRED_CHECKS="size"`. Never to the empty string: the
-host refuses `strict: true` with no contexts, and a perimeter with nothing to assert is the exact failure
-these documents exist to prevent. You are not weakening the check, you are making it claim only what is true
-today. Each later day adds one name back.
+so requiring it blocks every pull request permanently. And on day 1, set `REQUIRED_CHECKS` in `perimeter.yml`
+to `"size"` alone. Never to the empty string: the host refuses `strict: true` with no contexts, and a
+perimeter with nothing to assert is the exact failure these documents exist to prevent. You are not
+weakening the check, you are making it claim only what is true today. Each later day adds one name back.
+
+**And delete the workflows you cannot wire today.** This is the instruction people skip, and skipping it
+produces the one thing worse than a missing gate: five or six checks failing on every pull request forever,
+because they were installed before anything satisfied them. A wall of red teaches everybody to stop reading
+the list, and after that a real failure is indistinguishable from the noise — which is this whole
+repository's failure mode arriving through the back door.
+
+So a gate you cannot satisfy gets **deleted**, in its own commit, with the reason, and recorded as *to
+build* in `README.md`. `perimeter.yml` makes that safe rather than quiet: every workflow file must appear in
+exactly one of its three lists — `REQUIRED_CHECKS`, `ADVISORY_CHECKS`, `NOT_A_GATE` — and every name in
+those lists must have a file. So a workflow nobody classified fails the perimeter, and so does a name we
+still claim while its file is gone. You cannot forget in either direction.
+
+Typical day 1 on a fresh repository: `verify` has no stack scripts, `review` has no API key, `scan` has no
+alerts enabled, `deploy` and `promote` have no environments. That is five deletions and five *to build*
+rows, and the pull request board then shows only checks that mean something.
 
 **Pass condition, run #2: green, printing `The perimeter matches.`**
 

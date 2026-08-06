@@ -68,9 +68,19 @@ is unrecoverable: the file that would have to approve its own repair is the brok
 can merge. The order is therefore fixed — **land a working `CODEOWNERS` first, then require the review** —
 and it is the reverse of the instinct, which is to turn the protection on and fix the details after.
 
-**One shortcut was taken and is recorded as one.** Merging the `CODEOWNERS` fix needed an approval that no
-second person existed to give, so it went in with `--admin`. That is metric 4, and the honest reading is that
-this repository has had one bypass in nine pull requests, by the only person with access.
+**Two shortcuts were taken and are recorded as such.** Merging the `CODEOWNERS` fix, and later the deletion
+of five unwirable gates, each needed an approval that no second person existed to give, so both went in with
+`--admin`. That is metric 4: two bypasses in eleven pull requests, by the only person with access. Both were
+on changes the process itself had asked for, which is the least bad kind, and neither would have been needed
+with a second reviewer.
+
+**The wall of red, and the fix.** Six of the first nine pull requests showed three failures unrelated to
+their content — `review` with no API key, `verify` with no stack scripts, and `evidence` failing because its
+comment step calls `gh`, which is absent on a minimal runner. Two of those are the designed
+fail-rather-than-skip; the third was a real bug. But the aggregate is the problem: a board where every row is
+red teaches people to stop reading it. Deleting the five gates nothing here could satisfy took the board from
+six reds to all-green, with the only remaining block being the review requirement — which is the one that
+should block. See findings 63 and 64.
 
 **What running it taught that no offline test could.** Two of our own rules collide: `spec.yml` requires the
 spec to be the branch's first commit *and alone in it*, and it also requires the ticket to have a board
