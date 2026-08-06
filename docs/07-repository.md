@@ -291,6 +291,38 @@ is the thing every later session believes.
 The full process is in the AI SDLC. These are the rules that are always true, so you do not have to
 look them up.
 
+## Start by asking where you are
+
+```
+node scripts/next.mjs
+```
+
+It derives the one next step from facts — the branch name, whether the spec is the first commit and alone in
+it, the board entry, the pull request's checks, an open escalation. It stores nothing, so it cannot be stale
+and cannot be wrong about a state you are not in. Run it whenever you are unsure; it is cheaper than working
+it out.
+
+Several of the steps it can emit are **a person's, not yours**: `pick-ticket`, `fix-spec-order`,
+`resolve-criteria`, `blocked-by-ticket`, `await-review`, `merge`. Stop and ask rather than working around one.
+
+The `work-the-loop` skill covers every step, and why the Stop hook sometimes refuses to let a turn end.
+
+## Load the skill for the thing you are about to do
+
+Each is short, and none of them is loaded until it is needed. Reaching for one is cheaper than being
+corrected by a gate.
+
+| About to | Skill |
+|---|---|
+| write a spec | `write-a-spec` |
+| write acceptance criteria, or fill the criteria table | `acceptance-criteria` |
+| write code touching money, an external call, auth, a migration, a retry | `house-rules` |
+| work a ticket, or wonder what comes next | `work-the-loop` |
+| respond to a red check or a reviewer | `respond-to-review` |
+| ask a person something | `escalate` |
+| record something the project learned | `capture-a-learning` |
+| produce evidence a person operated the thing | `operate-app` |
+
 ## Always work from a ticket
 
 No branch, no commit, no pull request without a ticket. The branch is named after it: `PULSE-123-short-slug`.
@@ -327,32 +359,50 @@ ticket's spec.
 ## Never approve your own work
 
 You may **propose** a change to acceptance criteria. Only a person approves one.
-You may not merge. You may not push to `main`. You may not set a ticket's status — status is derived from
-what actually happened.
+
+Some of this is a rule and some of it is a wall, and it is worth knowing which. **Merging, pushing to `main`,
+`--no-verify`, and approving a pull request are denied by `.claude/settings.json`** — the harness refuses, so
+attempting one costs you a turn and achieves nothing. Setting a ticket's status is not blocked by anything and
+must simply not be done: status is derived from what actually happened.
 
 ## Weakening a gate goes in its own commit
 
-Never in the same commit as implementation. The protected set:
+Never in the same commit as implementation, and `gates.yml` rejects the mixture rather than warning about it.
 
-- existing tests (modifying or deleting them — adding new ones for new code is implementation)
-- coverage thresholds
-- CI and hook config
-- `CODEOWNERS`, `CLAUDE.md`, `.claude/`
-- the acceptance criteria
+**`CODEOWNERS` is the list.** It is deliberately not restated here: a copy of a protected set is a copy that
+will fall behind the real one, and the stale copy is the one somebody reads. Read `CODEOWNERS`. Beyond the
+paths it names, these count as weakening wherever they live: modifying or deleting an existing test (adding
+one for new code is implementation), lowering a coverage threshold, and turning off a lint rule.
 
-If a gate is in your way, say so and stop. Do not route around it. `--no-verify`, `git stash` to hide
-staged state, quiet flags, deleting a failing test, editing a workflow to skip a job — all of these are
-the thing we are guarding against, and all of them are visible.
+If a gate is in your way, say so and stop. Do not route around it. `git stash` to hide staged state, quiet
+flags, deleting a failing test, editing a workflow to skip a job — all of these are the thing we are guarding
+against, and all of them are visible.
 
 ## Green checks are not evidence
 
 They are evidence only if you did not touch what produces them. Attach the artefact that proves each
 criterion: the test name, the screenshot, the response, the query output.
 
+This one is now mechanical, so it is worth knowing the shape it wants. The `criteria` check resolves every row
+of the criteria table and **refuses a cell that names no artefact** — prose fails, and so do the words that
+stand in for proof: verified, done, tested, confirmed, n/a. Wrapping one in backticks does not help. Check
+before you push:
+
+```
+node scripts/lib/criteria.mjs docs/specs/<TICKET>.md
+```
+
+A criterion that genuinely cannot be proven is a question for a person **before** it is code, and it belongs
+under "What this does not verify" rather than in the table. The `acceptance-criteria` skill has the forms that
+resolve.
+
 ## Retry twice, then ask
 
 If a check fails, fix the cause and try again. After two attempts, stop and ask the developer. Looping on
 a red gate burns budget without producing evidence.
+
+The Stop hook holds the same number: it releases the loop after two continuations with no progress. If you
+change one, change the other — `DEVX_STOP_CONSECUTIVE_CAP` in `scripts/stop-guard.mjs`.
 
 ## Asking is free. Asking the same question twice is a bug
 
@@ -588,6 +638,10 @@ tools: Read, Grep, Glob, WebFetch, Write, Bash
 model: opus
 ---
 
+You write the spec, so load **`write-a-spec`** before you start and **`acceptance-criteria`** before you
+write the criteria table. `criteria.yml` reads that table and refuses a cell that names no artefact, so a
+spec written without the second skill is a spec that fails a check nobody expected.
+
 You read and you write one file. You do not implement.
 
 ## What you read
@@ -669,6 +723,10 @@ tools: Read, Grep, Glob, Write, Edit, Bash
 model: opus
 ---
 
+Load **`house-rules`** before writing code that touches money, an external call, an auth boundary, a
+migration, or anything retryable — those are the tier-1 rules and most of them are not checked by any gate.
+Load **`acceptance-criteria`** before filling the criteria table.
+
 You work from the approved spec and nothing else. You did not do the exploration and you do not have it —
 if the spec does not answer something, the spec is wrong, and you say so rather than guessing.
 
@@ -744,6 +802,10 @@ description: Reviews a finished ticket in a fresh context, having neither explor
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
+
+Load **`house-rules`** before judging code that touches money, an external call, an auth boundary, a
+migration, or a retry: those rules are what the diff must be read against, and several have no gate behind
+them, which is exactly why a reviewer has to know them.
 
 You did not plan this work and you did not write it. That is the point — a session reviewing its own work
 catches less than a fresh one does, and repeating the self-review does not close the gap.
@@ -1163,7 +1225,14 @@ template whose reasoning has been stripped out gets filled in with the word "ver
 | | | |
 
 <!-- Every criterion names its check. A criterion with nothing against its
-     name is prose, and prose disappears. Never write "verified" as prose. -->
+     name is prose, and prose disappears. Never write "verified" as prose.
+
+     The `criteria` check enforces this: it resolves every row and refuses a cell
+     that names no artefact — prose fails, and so do verified / done / tested /
+     confirmed / n/a, including in backticks. Check before pushing:
+         node scripts/lib/criteria.mjs docs/specs/<TICKET>.md
+     A criterion that genuinely cannot be proven belongs under "What this does
+     not verify" below, not in this table. See the acceptance-criteria skill. -->
 
 ## What we learned that was not in the design document
 

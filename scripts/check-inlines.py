@@ -46,12 +46,19 @@ S = pathlib.Path(os.environ.get("STARTER", "../devx-starter"))
 # Content that IS the standard. Matched against the starter-relative path.
 # Anything not matching here is MENTIONED rather than inlined.
 INLINE_PREFIXES = (
-    ".github/workflows/",   # the run: block is the rule; a reader must see the exact condition
+    # All of .github/, not only workflows/. Scoping this to workflows/ was a real defect: the pull request
+    # template IS the standard — it is what a pull request must contain — and it was inlined in 07-repository.md
+    # while being classified MENTIONED, so an edit to it went stale and this check reported ok. The rule is
+    # about whether the CONTENT is the standard, and nothing about .github/ that is not a workflow fails it.
+    ".github/",
     ".claude/skills/",      # a skill is prose that shapes behaviour — but see SKILL_BODY_ONLY below
     ".claude/agents/",
     ".claude/commands/",
     "docs/",                # templates and the tier-1 rules
     "tasks/board.md",
+    # The escalation schema and its template. A record format is a standard: a reader who cannot see the exact
+    # fields cannot write one, and every entry in log/events/ is read by scripts/learn.mjs.
+    "log/",
 )
 INLINE_EXACT = {
     "CLAUDE.md", "CODEOWNERS", "REVIEW.md", "lefthook.yml", "package.json",

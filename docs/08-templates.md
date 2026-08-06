@@ -478,6 +478,13 @@ config file, a hook or a test came out **8 of 8** present and correct. Requireme
 came out **0 of 7**. An agent makes several hundred small choices per ticket about things nobody
 specified, and it makes them differently every time. This file is where those choices get made once.
 
+**Change a rule here and change `.claude/skills/house-rules/` in the same commit.** That skill restates these
+rules at the moment code is being written, which is the only moment they can be acted on: this file is the
+record, the skill is the reminder. Nothing checks that the two agree, so the link is stated in both directions
+and both paths are in `CODEOWNERS` — a reviewer of either is told the other exists. A rule corrected here and
+not there is worse than a rule in one place only, because the stale copy is the one an agent reads while it is
+writing the code.
+
 ## How each line is enforced, and why the order matters
 
 Three tiers, and the tier is part of the rule:
