@@ -30,7 +30,10 @@ in this folder.
 |---|---|
 | [`docs/brd.md`](docs/brd.md) | Client brief, v1.1. Theirs. Still contains the contradiction the meeting did not resolve |
 | [`docs/meetings/2026-08-06-discovery.md`](docs/meetings/2026-08-06-discovery.md) | Frozen. Where the contradictions surfaced |
-| [`docs/sow.md`](docs/sow.md) | **v1.0** — all 19 required changes applied. 32,000 words, and that is a problem in itself; see below |
+| [`docs/sow.md`](docs/sow.md) | **v1.0, the agreement** — 1,100 words, everything you need to decide whether to sign |
+| [`docs/sow-terms.md`](docs/sow-terms.md) | the full wording, 23,000 words |
+| [`docs/annexes/`](docs/annexes/) | six annexes — criteria, check statuses, exclusions, obligations, AI use, depth |
+| [`docs/archive/sow-v1.0-monolithic.md`](docs/archive/sow-v1.0-monolithic.md) | the same document before the split, kept as evidence of the failure mode |
 | [`docs/reviews/2026-08-06-sow-tech-lead.md`](docs/reviews/2026-08-06-sow-tech-lead.md) | The verdict and the four blocking changes |
 | [`docs/reviews/2026-08-06-sow-hostile.md`](docs/reviews/2026-08-06-sow-hostile.md) | Adversarial review of both documents |
 | [`docs/reviews/2026-08-06-what-the-reviews-changed.md`](docs/reviews/2026-08-06-what-the-reviews-changed.md) | What the reviews forced, including risks accepted with a name against them |
@@ -52,11 +55,23 @@ spliced in, that contradiction removed, three wrong cross-references, a version-
 the wrong row's date, a floor/ceiling pair that omitted a priced option, a decision dated after the
 agreement it decides, and one weekday that was wrong (11 August 2026 is a Tuesday).
 
-**And the honest problem with the result: it is 32,000 words.** v0.9 was 13,000. Every addition was demanded
-by a reviewer and every one is defensible on its own, and the aggregate is a document a founder will not
-read. Disclosure has a length budget, and past some point disclosure becomes concealment — the sentence you
-most need someone to see is now on page forty. That is a genuine finding about the process, not a
-complaint about the reviewers, and it is the next thing to fix.
+**And the honest problem with the result: it was 32,000 words.** v0.9 was 13,000. Every addition was demanded
+by a reviewer and every one is defensible on its own, and the aggregate was a document a founder would not
+read — the sentence you most need someone to see ends up on page forty.
+
+**Fixed by splitting rather than by cutting. Nothing was removed**, and that is verified mechanically rather
+than asserted: all 325 table rows and every one of the 146 identifiers (`A-`, `N-`, `X-`, `C-`, `D-`, `S-`,
+`P1-`, `P2-`) from the monolithic version appear in the split set. The check found two real losses on the
+first attempt — a whole section my split script skipped because it sits before §1, and a column I had trimmed
+from two rows — and both were restored.
+
+The reading path is now **1,100 words → 23,000 → 18,400**, in that order, with each tier pointing at the
+next. That is how contracts are normally built: a short agreement plus schedules.
+
+One diagnosis worth keeping, because it is not a formatting problem. **The document is long because the
+process has unclosed gaps.** Pages of it exist to disclose that we cannot prove originality of agent-written
+code (R2), that our read-and-transmit position is half written (R1), and that no check has been proven on a
+host (B1). Closing those would shorten this document more than any editing pass.
 
 The revision document is incomplete and says so: the agent that produced it was truncated mid-output, so the
 revised sections 1–10 do not exist. Recorded rather than quietly regenerated, because a gap that is named
