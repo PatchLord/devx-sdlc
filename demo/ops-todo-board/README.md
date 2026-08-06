@@ -30,11 +30,33 @@ in this folder.
 |---|---|
 | [`docs/brd.md`](docs/brd.md) | Client brief, v1.1. Theirs. Still contains the contradiction the meeting did not resolve |
 | [`docs/meetings/2026-08-06-discovery.md`](docs/meetings/2026-08-06-discovery.md) | Frozen. Where the contradictions surfaced |
-| [`docs/sow.md`](docs/sow.md) | **v0.9 DRAFT — RETURNED UNSIGNED** |
+| [`docs/sow.md`](docs/sow.md) | **v1.0** — all 19 required changes applied. 32,000 words, and that is a problem in itself; see below |
 | [`docs/reviews/2026-08-06-sow-tech-lead.md`](docs/reviews/2026-08-06-sow-tech-lead.md) | The verdict and the four blocking changes |
 | [`docs/reviews/2026-08-06-sow-hostile.md`](docs/reviews/2026-08-06-sow-hostile.md) | Adversarial review of both documents |
 | [`docs/reviews/2026-08-06-what-the-reviews-changed.md`](docs/reviews/2026-08-06-what-the-reviews-changed.md) | What the reviews forced, including risks accepted with a name against them |
 | [`docs/reviews/2026-08-06-sow-revisions-partial.md`](docs/reviews/2026-08-06-sow-revisions-partial.md) | Partial. Commercial terms, signatures and accepted risks, which the draft lacked |
+
+## The revision, and the thing it exposed
+
+All 19 required changes landed, and both verifiers agreed the four blocking ones closed properly — the
+data-protection sentence is now graded at three different strengths with three artefacts; discovery's
+sequence is inverted so the permission and the data-handling note are preconditions of the first store read;
+authentication arrived as an outcome whose criterion enumerates routes *from the router* rather than from a
+hand-written list; and the webhook receiver got authenticity, freshness and a second owner.
+
+Neither verifier would sign it, and both found the same material defect independently: **§14 and §15 were
+referenced nine times and did not exist.** The revision also introduced a contradiction of exactly the class
+that got v0.9 returned — §11.1 sold "production provisioned from code" while §5.4 twice declines that as a
+High row we are not buying. Eight further fixes were applied by hand afterwards: the two missing sections
+spliced in, that contradiction removed, three wrong cross-references, a version-history date that had copied
+the wrong row's date, a floor/ceiling pair that omitted a priced option, a decision dated after the
+agreement it decides, and one weekday that was wrong (11 August 2026 is a Tuesday).
+
+**And the honest problem with the result: it is 32,000 words.** v0.9 was 13,000. Every addition was demanded
+by a reviewer and every one is defensible on its own, and the aggregate is a document a founder will not
+read. Disclosure has a length budget, and past some point disclosure becomes concealment — the sentence you
+most need someone to see is now on page forty. That is a genuine finding about the process, not a
+complaint about the reviewers, and it is the next thing to fix.
 
 The revision document is incomplete and says so: the agent that produced it was truncated mid-output, so the
 revised sections 1–10 do not exist. Recorded rather than quietly regenerated, because a gap that is named
