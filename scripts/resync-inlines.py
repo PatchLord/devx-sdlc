@@ -46,8 +46,13 @@ def stale_files():
         ["python3", "scripts/check-inlines.py"], capture_output=True, text=True,
         env={**os.environ, "STARTER": str(S)},
     ).stdout.strip()
+    # ABSENT entries are included. check-inlines guesses a file's home from ONE probe line, so a file whose
+    # middle line changed reports ABSENT even though its old copy is sitting in a document — which is the same
+    # single-line heuristic check-inlines itself was rewritten to stop trusting. The similarity scorer below
+    # does not need the probe, and its score-plus-margin test is what refuses when a file genuinely is not
+    # there. Filtering on the probe here made resync silently skip exactly the files it was written for.
     stale = res.split("|")[1].split()
-    return [s.split("->")[0] for s in stale if not s.endswith("->ABSENT")]
+    return [s.split("->")[0] for s in stale]
 
 
 did = 0

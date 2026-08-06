@@ -830,11 +830,26 @@ Then dispatch the **explore** subagent. Give it the ticket id and tell it to:
    own words.
 4. Stop. No implementation.
 
-When it returns, commit the spec **on its own, as the branch's first commit**:
+Before it writes the acceptance criteria, have it load the **`acceptance-criteria`** skill. `criteria.yml`
+reads the spec's table and refuses any evidence cell that does not resolve to a real path, a test title a test
+file actually contains, or a URL — "verified" fails, including in backticks. A spec written without that skill
+is a spec that fails a check nobody expected.
+
+When it returns, commit **in this order, and the order is not cosmetic** — two of our own gates disagree until
+you know it:
 
 ```
-git add docs/specs/$1.md && git commit -m "docs($1): spec"
+git add docs/specs/$1.md && git commit -m "docs($1): spec"   # the FIRST commit, and alone in it
+# then, as a second commit: add a $1 entry to tasks/board.md
+#   node scripts/board.mjs --index && node scripts/board.mjs --html
 ```
+
+`spec.yml` wants both — the spec as the branch's first commit with nothing else in it, **and** an entry for
+`$1` on the board. One commit containing both fails the first requirement; skipping the board fails the second.
+`break-it` can never find this, because it tests each gate in isolation.
+
+Then run `node scripts/next.mjs`. It should say `implement`. If it says `resolve-criteria`, a criterion does
+not name checkable evidence — that is a question for me, not something to work around.
 
 Then show me the spec and stop. Do not begin implementing. I approve it by approving the pull request on
 the host — not by you writing "approved" anywhere.
@@ -866,13 +881,15 @@ allowed-tools: Task, Read, Grep, Glob, Bash
 
 Ticket: **$1**
 
-First verify the spec is there and was approved before any code:
+First run `node scripts/next.mjs`. It derives where this branch actually is — from git, the board and the pull
+request — and it is both cheaper and more reliable than checking by hand. Proceed only if it says `implement`.
 
-- `docs/specs/$1.md` exists
-- it is the branch's first commit: `git log --oneline main..HEAD | tail -1` should be the spec commit
-- the pull request carries an approving review, or the `spec-approved` label
+Anything else it says **is** the next step, and several of them are mine rather than yours: `pick-ticket`,
+`fix-spec-order`, `resolve-criteria`, `await-review`, `merge`. Stop and tell me rather than working around one.
+The `work-the-loop` skill covers every step it can emit.
 
-If any of those is false, stop and tell me. Do not implement against an unapproved spec.
+Then confirm the one thing `next.mjs` cannot see: the pull request carries an approving review, or the
+`spec-approved` label. Do not implement against an unapproved spec.
 
 Then dispatch the **implement** subagent with the spec as its input and a fresh context. It must not be
 given this conversation — the spec is the handoff, and if the spec is thin that is a finding, not something
@@ -880,13 +897,22 @@ to work around.
 
 When it returns:
 
-1. Confirm the size ceiling holds — `git diff --stat main..HEAD`. Over 400 lines or 20 files means the
-   ticket needed splitting; say so rather than asking for an override.
+1. Confirm the size ceiling holds — `git diff --stat main..HEAD`. **Read the ceiling out of
+   `.github/workflows/size.yml` rather than trusting a number written here**; a limit restated in prose drifts
+   from the gate that enforces it, and this line used to carry a hardcoded one. Over it means the ticket needed
+   splitting — say so rather than asking for an override, which is a label I would have to add and you cannot.
 2. Confirm no commit mixes a gate change with implementation.
-3. Open the pull request using `.github/pull_request_template.md`, filled in: the criteria table with
-   evidence, what we learned and where it landed, and what this does not verify.
+3. Fill in `.github/pull_request_template.md`: the criteria table with evidence, what we learned and where it
+   landed, and what this does not verify. Load the **`acceptance-criteria`** skill before writing that table —
+   `criteria.yml` refuses a cell holding prose or a claim word, and it reads the pull request body as well as
+   the spec. Check it yourself before opening: `node scripts/lib/criteria.mjs docs/specs/$1.md`.
+4. Run `node scripts/next.mjs` once more. It should now say `open-pr`, and after that `await-checks`.
 
 Then stop. The review agent runs as a check. I judge the feature when its whole set of tickets is merged.
+
+If a check comes back red, the **`respond-to-review`** skill has the cause and the legitimate fix per check.
+The one rule that governs all of them: making a check quieter — deleting a test, lowering a threshold, adding a
+skip, turning off a lint rule — is a gate change, not a fix.
 ```
 
 ## `.claude/skills/build-loop/SKILL.md`
