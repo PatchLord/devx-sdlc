@@ -1508,20 +1508,37 @@ quietly. That is the whole design goal.
 
 ```bash
 bun install
-bun run setup            # installs the git hooks
+bun run setup                        # installs the git hooks
+node scripts/setup-repo.mjs --plan   # what this repository still needs, in the order it needs it
 ```
 
-Then four things, in this order. The first is not optional and nothing else works without it.
+**Do not do setup from this document.** `--plan` reads the host, prints the ordered steps, and marks the
+question each one needs with `ASK` — and those questions have no defaults, because the answers depend on who
+is on the project and what actually runs. `node scripts/setup-repo.mjs --do <step>` performs one at a time,
+refusing any step whose decision it would otherwise have to guess. The `set-up-repo` skill drives it.
 
-### 1. Branch protection on `main`
+`node scripts/next.mjs` answers `set-up-repo` above every other step until the audit passes, so an
+unconfigured repository is not somewhere work can quietly begin. The sections below explain WHY each step
+matters; the script is what should actually be run, because a document is not checked against the host and
+this one has been wrong before.
+
+The steps are ordered, and three of them break the repository if taken early: a `CODEOWNERS` that resolves
+before requiring code-owner review, deleting the gates you cannot wire before protection, and protecting
+`dev`/`uat`/`prod` before enabling auto-delete on merge.
+
+### 1. Branch protection on `dev`, `uat` and `prod`
 
 Everything in `.github/workflows/` runs inside the repository, where an agent can reach it. Branch
 protection lives on the host, where it cannot. **Until this is set, every gate here is advisory.**
 
-On `main`, require:
+On each of the three, require:
 
-- status checks: `size`, `gates`, `spec`, `verify`, `review` — and "up to date with main"
-- 1 approving review, **code owner review**, and dismiss stale reviews
+- status checks: whichever of `size`, `gates`, `spec`, `verify`, `criteria` you have actually wired —
+  and "up to date with the base". **A required check that cannot run blocks every merge for ever**
+- **the approval count is a decision, not a default.** With one person on the project it must be ZERO:
+  GitHub refuses to let an author approve their own pull request, so requiring one makes the repository
+  unmergeable
+- **code owner review**, and dismiss stale reviews — once `CODEOWNERS` names an owner that resolves
 - **require linear history** — this one is a precondition, not a preference. `gates.yml` walks
   `git rev-list` commit by commit and `spec.yml` asserts the spec is an ancestor of every
   implementation commit. A merge commit inside a branch makes both reason about an order nothing was
@@ -1582,7 +1599,7 @@ the repository stops claiming a review it does not do.
 ```
 
 Three roles, sequential, never parallel. They are real because **their tools differ** — explore reads
-and writes one file, implement writes code but cannot merge or push to `main`, review cannot write at
+and writes one file, implement writes code but cannot push to `dev`, `uat` or `prod`, review cannot write at
 all. A role that is only a name is a naming convention.
 
 The loop is in `.claude/skills/build-loop/SKILL.md`. The rules that are always true are in `CLAUDE.md`.
