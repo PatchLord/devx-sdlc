@@ -389,7 +389,7 @@ and taking them is the failure this skill exists to prevent:
 | `fix-spec-order` | rebasing to move the spec commit | say the branch's history is wrong and stop. `git rebase*` is in the `ask` list in `.claude/settings.json`, so you cannot run it silently anyway |
 | `resolve-criteria` | putting a word in the evidence cell so the resolver passes | escalate class B — the criterion cannot be proven as written. Only a person changes a criterion |
 | `await-review` | reviewing your own work, or nudging it green | stop. `gh pr review*--approve*` is in the `deny` list |
-| `merge` | merging because everything is green | stop. `gh pr merge*` is in the `deny` list |
+| `merge` | merging before asking | ask first — `gh pr merge*` is in `ask`, not `deny`. The merge is yours once the answer is yes |
 
 Anything you stop on gets an escalation record: the `escalate` skill has the six classes and the file to
 write in `log/events/`.
@@ -671,7 +671,7 @@ Everything else in the tables below reduces to one of these, or to nothing.
 | `scripts/scan-secrets.mjs` | Pre-commit, staged lines, 11 known key shapes | A hint, not a gate. `--no-verify` walks past it, and it only knows the shapes in its list |
 | `scan.yml` | Daily, reads the host's Dependabot and code-scanning alerts; fails if scanning is off | Nothing to do with your diff |
 | `REVIEW.md` step 3 | The review agent walks the tier-2 lines of `docs/production-ready.md` | Judgement, so probabilistic. Written down and auditable, not binding |
-| `.claude/settings.json` | Denies force-push, pushes to main, `gh pr merge`, `--no-verify`; asks on `rm -rf`, and on edits to workflows, `CODEOWNERS`, `CLAUDE.md`, `.claude/**`, `docs/design/criteria/**`, `scripts/lib/**` | Your session only. It constrains you, not CI, and not a person |
+| `.claude/settings.json` | Denies force-push, pushes to main, self-approval, `--no-verify`; asks on `gh pr merge`, `rm -rf`, and on edits to workflows, `CODEOWNERS`, `CLAUDE.md`, `.claude/**`, `docs/design/criteria/**`, `scripts/lib/**` | Your session only. It constrains you, not CI, and not a person |
 
 ## What this skill cannot do
 
@@ -1089,6 +1089,43 @@ Start with the audit:
 ```
 node scripts/setup-check.mjs
 ```
+---
+name: set-up-repo
+description: Use when next.mjs says set-up-repo, when a repository was just forked or created from this starter, when CODEOWNERS still names a placeholder owner, when dev/uat/prod do not all exist, or before setting branch protection or enabling auto-delete on merge. Covers the order the steps must happen in, because three of them break the repository if done early.
+---
+
+# Setting up a repository
+
+A forked template is not a project. It has every file, and none of the host state those files describe: no
+branches, no protection, an owner that resolves to nobody, and gates it claims to require that nothing
+requires. **Every check in it passes and none of them protects anything** — which is the pilot's failure
+exactly, and why `next.mjs` answers `set-up-repo` above every other step until this is done.
+
+Two scripts. One tells you where you are, the other does the work:
+
+```
+node scripts/setup-repo.mjs --plan       # the audit, then the ordered steps and the questions each needs
+node scripts/setup-repo.mjs --do <step>  # perform ONE step, after its questions are answered
+```
+
+**Ask every question the plan raises, before running the step under it, and never answer one yourself.** There
+are no defaults here: the answers depend on who is on the project and what actually runs, and a wrong guess on
+the approval count alone makes the repository unmergeable. Use `AskUserQuestion` — this is exactly the case it
+is for.
+
+There is deliberately no `--all`. Six of these change host state and several are awkward to reverse, so each is
+named explicitly, one call at a time. A step whose prerequisite is unmet refuses rather than proceeding, and
+`auto-delete` re-reads protection itself rather than trusting that you did the previous step.
+
+The two questions that matter most, because getting them wrong is expensive:
+
+**How many approvals?** If one person holds every role, the answer is **zero**. GitHub refuses to let an author
+approve their own pull request, so requiring one with nobody else means nothing can ever merge. That is not a
+reason to weaken the rule later — it is a reason to know now that the central gate is inoperative, and to say so
+in writing when reporting on the project.
+
+**Which checks are required?** Only ones that actually run. A required check that cannot run blocks every merge
+for ever, and the fix then needs an admin override — which is how a repository learns that overrides are normal.
 
 It names each item, whether it is set, and the command that sets it. `unknown` means the host could not be
 read — unreadable is not configured, and it does not fail the check because pretending otherwise is the lie

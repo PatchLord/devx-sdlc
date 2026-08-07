@@ -385,7 +385,19 @@ jobs:
             FAILED=1
           fi
 
-          SKIPS=$(git diff "$BASE...$HEAD" | grep -E '^\+.*(\.skip\(|\.todo\(|xit\(|xdescribe\(|@pytest\.mark\.skip|t\.Skip\()' || true)
+          # WORD BOUNDARIES, and they are not decoration. `xit(` is Jasmine's excluded test — and it is also
+          # the last four characters of `process.exit(`, so without \b this fired on every Node CLI script in
+          # the repository and called them skipped tests. It did exactly that on a real pull request, which is
+          # the only reason it was found: break-it had no case with a process.exit in the diff.
+          # Two files are excluded, for the same reason the `|| true` check above scopes itself: a check that
+          # scans for a pattern fails the commit that IMPLEMENTS or TESTS that pattern. This file has to
+          # contain `xit(` to look for it, and break-it.mjs has to contain it to prove the search works —
+          # the word-boundary fix above was refused by its own check, on its own pull request.
+          #
+          # Narrow on purpose: both are gate paths under CODEOWNERS, so a skipped test smuggled into either
+          # still needs an owner. Excluding the test directories would be the version that defeats the check.
+          SKIPS=$(git diff "$BASE...$HEAD" -- . ':(exclude).github/workflows/gates.yml' ':(exclude)scripts/break-it.mjs' \
+            | grep -E '^\+.*(\.skip\(|\.todo\(|\bxit\(|\bxdescribe\(|@pytest\.mark\.skip|\bt\.Skip\()' || true)
           if [ -n "$SKIPS" ]; then
             echo "::error::Tests were skipped rather than fixed:"
             printf '%s\n' "$SKIPS"
@@ -538,6 +550,7 @@ jobs:
       # rather than a spoiled build. The shas are hex and could not carry a payload, but they go through
       # env too so that no future edit has to reason about which of the three was safe.
       - name: The spec exists, and it came first
+        id: spec
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
@@ -545,9 +558,51 @@ jobs:
         run: |
           set -euo pipefail
 
+          # ── the front half ────────────────────────────────────────────────────────────────────────
+          # A `design/` or `process/` branch is work that exists BEFORE tickets do: the TDD, the frozen
+          # contracts, a change to the process itself. Every other rule in this file assumes a ticket, and
+          # the front half legitimately has none — `create-tickets` comes after `freeze-contracts`, so
+          # demanding a ticket here is circular.
+          #
+          # This is a NAMED PATH, not an exemption, and the difference is the constraint that replaces the
+          # one it drops. A front-half branch may touch only front-half paths. It cannot carry application
+          # code — which is the thing an exemption would have let through, and the reason "skip spec when
+          # there is no ticket id" was rejected: that phrasing makes every unnamed branch a free pass.
+          #
+          # It also announces itself, so a front-half branch is visible in the log rather than silently
+          # different. A prefix that passes quietly is a prefix that becomes the way everything ships.
+          case "$BRANCH" in
+            design/*|process/*)
+              echo "Front-half branch: $BRANCH"
+              echo "This is work that precedes tickets — a TDD, frozen contracts, or the process itself."
+              echo "The ticket rules below do not apply. In their place: it may touch ONLY front-half paths."
+              echo ""
+              STRAY=$(git diff --name-only "$BASE...$HEAD" \
+                | grep -vE '^(docs/|\.claude/|\.github/|scripts/|tasks/|log/|CLAUDE\.md|CODEOWNERS|REVIEW\.md|README\.md|lefthook\.yml|package\.json|commitlint\.config\.js|\.gitignore|\.editorconfig|\.gitattributes)' \
+                || true)
+              if [ -n "$STRAY" ]; then
+                echo "::error::A front-half branch is carrying files that are not front-half work:"
+                printf '  %s\n' $STRAY
+                echo ""
+                echo "Application code needs a ticket, a spec, and criteria that resolve — which is what this"
+                echo "prefix sets aside. Move those files to a ticketed branch. The prefix buys a different"
+                echo "constraint, not a lighter one."
+                exit 1
+              fi
+              echo "Only front-half paths touched. Nothing here needs a ticket."
+              # An OUTPUT, not `exit 0`. Exiting zero ends this STEP and leaves the rest of the job to run —
+              # so the front-half branch passed here and then failed the two ticket steps below, which is
+              # exactly the shape of a check that looks satisfied and is not. The steps are gated on this.
+              echo "front_half=true" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+
           TICKET=$(printf '%s' "$BRANCH" | grep -oE '^[A-Z][A-Z0-9]+-[0-9]+' || true)
           if [ -z "$TICKET" ]; then
             echo "::error::Branch '$BRANCH' does not start with a ticket id (e.g. PULSE-123-short-slug)."
+            echo "If this is work that precedes tickets — a TDD, contracts, or the process itself — name it"
+            echo "design/... or process/... instead. That path may touch only front-half files."
             echo "Rename it and push again:"
             echo "  git branch -m PULSE-123-\$(echo '$BRANCH' | tr -cd '[:alnum:]-' | cut -c1-30)"
             echo "  git push origin :$BRANCH && git push -u origin HEAD"
@@ -581,6 +636,7 @@ jobs:
           echo "The spec is the first commit: $(git log -1 --format='%h %s' "$FIRST")"
 
       - name: The ticket exists on the board
+        if: steps.spec.outputs.front_half != 'true'
         env:
           BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
@@ -621,6 +677,7 @@ jobs:
             }' "$BOARD"
 
       - name: A spec revised mid-flight is visible
+        if: steps.spec.outputs.front_half != 'true'
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}

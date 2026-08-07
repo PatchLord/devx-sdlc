@@ -449,3 +449,26 @@ One defect worth keeping, because it is the shape that recurs: the first version
 `✓ dev, uat and prod are protected` for a repository that had none of them. The loop skipped missing branches,
 so the empty set made `every()` true. **A vacuous pass is worse than no check** — it answers confidently and
 wrongly, and the reader stops looking.
+
+### `scripts/setup-repo.mjs` — not enforcement, and it refuses more than it does
+
+`setup-check.mjs` says what is unset; this performs it. The split is deliberate: a check that also acts is a
+check you cannot run to find out where you are.
+
+There is **no `--all`**. Six steps change host state and several are awkward to reverse, so each is named
+explicitly, one call at a time, after its questions are answered. `--plan` prints the audit, the ordered steps,
+and the question each needs, marked `ASK`.
+
+Most of the file is refusals, and each one is a decision it declines to make on somebody's behalf:
+
+| Step | Refuses when | Because |
+|---|---|---|
+| `branches` | no source branch given | guessing which content becomes production is not a guess to make |
+| `owner` | a placeholder, or a name that does not resolve on GitHub | a name that looks right and does not exist behaves exactly like no owner |
+| `protection` | no approval count | requiring one with a single person on the project makes the repository unmergeable |
+| `auto-delete` | protection unconfirmed — re-read, not trusted | a promotion pull request's head is `dev`, and auto-delete removes the head branch |
+| `prove-red` | always. It automates nothing | a green check on a repository where nothing has ever been red says only that nothing was tried |
+
+**What it cannot do:** decide anything. Not who the owner is, not which checks should be required, not whether a
+second reviewer exists. And it cannot verify that protection actually exempts a branch from auto-delete —
+nothing can, short of trying it, which is why the skill says to prove it with one throwaway promotion.
