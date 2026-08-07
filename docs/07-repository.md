@@ -306,6 +306,16 @@ look them up.
 ```
 node scripts/next.mjs
 ```
+# How we work in this repository
+
+The full process is in the AI SDLC. These are the rules that are always true, so you do not have to
+look them up.
+
+## Start by asking where you are
+
+```
+node scripts/next.mjs
+```
 
 It derives the one next step from facts — which artefacts exist, the branch name, whether the spec is the first
 commit and alone in it, the board entry, the pull request's checks, an open escalation. It stores nothing, so it
@@ -334,6 +344,8 @@ corrected by a gate.
 
 | About to | Skill |
 |---|---|
+| set up a repository that was just forked or created | `set-up-repo` |
+| draft or extend the technical design | `write-a-tdd` |
 | write a spec | `write-a-spec` |
 | write acceptance criteria, or fill the criteria table | `acceptance-criteria` |
 | write code touching money, an external call, auth, a migration, a retry | `house-rules` |
@@ -408,6 +420,57 @@ of the criteria table and **refuses a cell that names no artefact** — prose fa
 stand in for proof: verified, done, tested, confirmed, n/a. Wrapping one in backticks does not help. Check
 before you push:
 
+```
+node scripts/lib/criteria.mjs docs/specs/<TICKET>.md
+```
+
+A criterion that genuinely cannot be proven is a question for a person **before** it is code, and it belongs
+under "What this does not verify" rather than in the table. The `acceptance-criteria` skill has the forms that
+resolve.
+
+## Only our own checks count
+
+A pull request often carries checks this repository did not define — a review app, a scanner, a bot. **Never
+wait for one, and never read its green as evidence.** We do not control when it runs, whether it runs, or what
+it means, and a signal we do not own says nothing about our work either way.
+
+This is mechanical rather than remembered: `scripts/next.mjs` learns which checks are ours by reading
+`.github/workflows/`, and considers only those. It **names** the ones it ignored rather than dropping them
+quietly, so you can see the decision and disagree with it. A red third-party check next to `merge` is
+information; it is not a gate.
+
+The direction of the failure matters. The list is derived rather than written down, because a hand-maintained
+allowlist goes stale the first time a workflow is added — and then the check being ignored is one of ours.
+
+## Retry twice, then ask
+
+If a check fails, fix the cause and try again. After two attempts, stop and ask the developer. Looping on
+a red gate burns budget without producing evidence.
+
+The Stop hook holds the same number: it releases the loop after two continuations with no progress. If you
+change one, change the other — `DEVX_STOP_CONSECUTIVE_CAP` in `scripts/stop-guard.mjs`.
+
+## Asking is free. Asking the same question twice is a bug
+
+There is no budget on questions and no virtue in a low count. Guessing to avoid interrupting someone turns
+a two-minute answer into a day of wrong work.
+
+The `escalate` skill has the six classes that require a person, how to grade the request so only the
+blocking ones interrupt, and the one-file record you leave in `log/events/`. Write the record even when the
+answer arrives immediately — **especially** then, because an easy question is the most likely kind to be
+asked again, and that file is the only thing that will notice.
+
+## Fetch once, then commit it
+
+Documentation, an external system's response shape, a design frame — needed once, fetch it. Needed again,
+commit it as a fixture and read the file. Strip real credentials and real personal data before it lands.
+
+Never fetch live during implementation. It makes the result depend on which tools happened to be connected.
+
+## Say what you did not do
+
+At the end of a ticket, state what you could not verify. An account of the work that claims everything is
+checked is not one.
 ```
 node scripts/lib/criteria.mjs docs/specs/<TICKET>.md
 ```
@@ -1245,9 +1308,13 @@ fires; that is the only way to know the patterns are right.
 # removing one is a gate change, and this line is what makes that asymmetry real rather than stated.
 /docs/practices.md @devx/tech-leads
 
-# The shared readings every gate is built on. One parser, one fact collector, one criteria resolver — a change
-# here changes what several checks believe, without appearing in any of them.
-/scripts/lib/ @devx/tech-leads
+# The three sections of the TDD that a person must write: the open questions, the risks, and what we are
+# deliberately not doing. next.mjs refuses to move past `interrogate-tdd` until each has content, but it cannot
+# tell who wrote it — an agent filling them with plausible text satisfies the check completely. These three
+# lines are what put a person in the path, which is the difference between a rule and a mechanism.
+/docs/design/tdd/90-open-questions.md @devx/tech-leads
+/docs/design/tdd/91-risks.md @devx/tech-leads
+/docs/design/tdd/92-deliberately-not-doing.md @devx/tech-leads
 ```
 
 ## `.github/pull_request_template.md`

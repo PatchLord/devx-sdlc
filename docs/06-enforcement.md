@@ -697,7 +697,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   push:
-    branches: [main]
+    branches: [dev]
 
 permissions:
   contents: read
@@ -1305,6 +1305,13 @@ name: perimeter
 
 # The one check that checks the checks.
 #
+# NOTE, and it is a real limitation: this reads protection for `dev` only. The process promotes
+# dev -> uat -> prod and all three need protecting — uat and prod more than dev, since a promotion
+# straight into prod is the change with the least review and the most consequence. Checking one
+# branch and reporting on "the perimeter" overstates what has been verified. The fuller version
+# loops all three and is recorded as owed; `scripts/setup-check.mjs` does check all three, so the
+# gap is covered at setup time and not continuously.
+#
 # Everything else in this directory runs inside the repository, where an agent can reach it.
 # Branch protection lives on the host, where it cannot. So this job asks the host what it is
 # actually enforcing and compares that to what we say we enforce.
@@ -1320,7 +1327,7 @@ on:
   schedule:
     - cron: "0 7 * * 1" # Monday morning, so a weekend change is found before the week's work lands on it
   push:
-    branches: [main]
+    branches: [dev]
     paths:
       - ".github/workflows/**"
       - "CODEOWNERS"
@@ -1405,13 +1412,13 @@ jobs:
           fail() { echo "::error::$1"; FAILED=1; }
 
           # GitHub has two protection systems and a repository can use either. Classic branch
-          # protection answers /branches/main/protection; a repository configured with a ruleset
+          # protection answers /branches/dev/protection; a repository configured with a ruleset
           # returns 404 there while being fully protected. Verified against real repositories in
           # this org: one uses classic, one uses rulesets and 404s on the classic endpoint. Reading
           # only the classic endpoint therefore produces a false alarm rather than a false pass.
           # We read whichever answers and normalise both into one shape before asserting anything.
           MODE=""
-          if P=$(gh api "repos/$REPO/branches/main/protection" 2>/dev/null); then
+          if P=$(gh api "repos/$REPO/branches/dev/protection" 2>/dev/null); then
             MODE="classic branch protection"
             NORM=$(jq -n --argjson p "$P" '{
               contexts:      ($p.required_status_checks.contexts // []),
@@ -1426,7 +1433,7 @@ jobs:
               no_delete:     ($p.allow_deletions.enabled == false),
               admins:        ($p.enforce_admins.enabled // false)
             }')
-          elif R=$(gh api "repos/$REPO/rules/branches/main" 2>/dev/null) && [ "$(jq 'length' <<<"$R")" -gt 0 ]; then
+          elif R=$(gh api "repos/$REPO/rules/branches/dev" 2>/dev/null) && [ "$(jq 'length' <<<"$R")" -gt 0 ]; then
             MODE="repository ruleset"
             NORM=$(jq -n --argjson r "$R" '
               def has_rule($t): any($r[]; .type == $t);
@@ -1445,7 +1452,7 @@ jobs:
                 admins:        null
               }')
           else
-            echo "::error::main is protected by neither branch protection nor a ruleset. Every gate in this repository is advisory."
+            echo "::error::dev is protected by neither branch protection nor a ruleset. Every gate in this repository is advisory."
             echo "Set one up, then re-run this job. Nothing below could be checked."
             exit 1
           fi
@@ -1636,7 +1643,7 @@ on:
   schedule:
     - cron: "0 6 * * *"      # daily, before the working day
   push:
-    branches: [main]
+    branches: [dev]
   workflow_dispatch:
 
 permissions:

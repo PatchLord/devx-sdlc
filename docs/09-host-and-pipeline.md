@@ -263,7 +263,7 @@ name: deploy
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
 
 permissions:
   contents: read

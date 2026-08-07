@@ -1064,3 +1064,179 @@ path or a literal rule copied from a workflow, and `scripts/lib/facts.mjs` reads
 `.github/workflows/spec.yml` rather than restating them. The rest are restatements, and a restatement is a
 copy. When a gate changes and its skill does not, the skill is confidently wrong, which is
 [worse than saying nothing](17-artefacts.md).
+
+## Two skills the front half needed
+
+### `.claude/skills/set-up-repo/SKILL.md`
+
+The first step the derivation can emit, and the one that outranks everything else. A forked template has every file and none of the host state those files describe, so every check in it passes and none protects anything. Its value is the ORDER: three of the steps break the repository if taken early, and each was found by nearly getting it wrong.
+
+```markdown
+---
+name: set-up-repo
+description: Use when next.mjs says set-up-repo, when a repository was just forked or created from this starter, when CODEOWNERS still names a placeholder owner, when dev/uat/prod do not all exist, or before setting branch protection or enabling auto-delete on merge. Covers the order the steps must happen in, because three of them break the repository if done early.
+---
+
+# Setting up a repository
+
+A forked template is not a project. It has every file, and none of the host state those files describe: no
+branches, no protection, an owner that resolves to nobody, and gates it claims to require that nothing
+requires. **Every check in it passes and none of them protects anything** — which is the pilot's failure
+exactly, and why `next.mjs` answers `set-up-repo` above every other step until this is done.
+
+Start with the audit:
+
+```
+node scripts/setup-check.mjs
+```
+
+It names each item, whether it is set, and the command that sets it. `unknown` means the host could not be
+read — unreadable is not configured, and it does not fail the check because pretending otherwise is the lie
+this whole standard is built against.
+
+## The order, and it is not cosmetic
+
+Three of these break the repository if done early. Each was found by nearly getting it wrong.
+
+**1. Branches, then the default.** Create `dev`, `uat` and `prod`, then make `dev` the default. Every pull
+request opens against the default branch, so leaving it as `main` decides where work lands by accident. This
+process promotes `dev → uat → prod`, and `main` is not part of it.
+
+**2. A `CODEOWNERS` that resolves, before requiring code-owner review.** GitHub silently ignores an owner it
+cannot find, so a file naming a non-existent team protects nothing while looking like it does. Worse, requiring
+review against it **deadlocks the repository**: the file that would have to approve its own repair is the broken
+one. Land a working owner first. Confirm it resolves rather than assuming — a team slug that looks right and
+does not exist behaves exactly like no owner at all.
+
+**3. Delete the gates you cannot wire, before protection.** Whatever needs a secret you do not have — a review
+key, an admin token, a deploy target — gets deleted now and recorded in `README.md` with the condition that
+restores it. Two reasons for the order: a deletion of several workflows is hundreds of lines and trips the size
+ceiling, correctly, and after protection the override is a label an author cannot grant themselves. Leaving them
+in place is worse than deleting them, because a check list where every row is red teaches everyone to stop
+reading it, and after that a real failure is indistinguishable from noise.
+
+**4. Protection on all three branches, before auto-delete on merge.** This is the one that surprises people. A
+promotion pull request from `dev` to `uat` has **`dev` as its head branch**, and auto-delete removes the head
+branch on merge. Protection is what makes that safe. Enable auto-delete first and the first promotion deletes
+the branch every developer works from.
+
+Verify the exemption rather than trusting this file: set protection, enable auto-delete, and merge one
+throwaway promotion pull request before believing it. `setup-check.mjs` refuses to call auto-delete `ok` while
+any of the three is unprotected or unreadable, so it will tell you if the order slipped.
+
+**5. Run one check by hand and watch it be RED.** A green check on a repository where nothing has ever been red
+tells you only that nothing has been tried. Push a change that should fail — a 500-line diff, a branch with no
+spec — and confirm the check rejects it. That red run is the artefact proving the gate works; the green one that
+follows proves nothing on its own.
+
+## What setup cannot give you
+
+**A second reviewer.** If one person holds every role, `CODEOWNERS` is decoration and the central rule — never
+approve your own work — is inoperative no matter what is configured. GitHub refuses to let an author approve
+their own pull request, so the gate is real; with one person it simply cannot be satisfied. Say so in writing
+when reporting on the project rather than letting it be discovered later.
+
+**Any assurance that the gates are good.** Setup makes them binding. Whether they catch anything is what
+`scripts/break-it.mjs` argues offline and what the first few real pull requests decide.
+
+## When it is done
+
+`node scripts/setup-check.mjs` exits 0 and `node scripts/next.mjs` moves off `set-up-repo` — onto `await-prd`
+if the PRD has not arrived, or `draft-tdd` if it has.
+
+Record what you deleted and why in `README.md`, with the condition that restores each one. A gate removed
+without a written trigger is a gate that never comes back.
+```
+
+### `.claude/skills/write-a-tdd/SKILL.md`
+
+The capability the front half was missing entirely. The TDD is the artefact a project spends its solutioning time on — an hour here is worth a day later — and nothing told a session how to build one. It carries the directory layout, the three sections a person must write, that a proof-of-concept never merges, and that research gets committed as a fixture rather than cited as a URL.
+
+```markdown
+---
+name: write-a-tdd
+description: Use when drafting or extending a technical design document — when next.mjs says draft-tdd or extend-tdd, when a PRD exists and no TDD does, when new work arrives that no part of the design covers, or when a contract cannot be decided without building something first. Covers the file layout, what belongs in each file, the three sections a person must write, and when to stop and ask.
+---
+
+# Writing a TDD
+
+**This is the artefact the project spends its solutioning time on.** Everything after it — the contracts, the
+tickets, the specs, the code — is derived from it, so an hour here is worth a day later. Its job is **closing
+questions, not documentation.** A TDD that describes a system nobody had questions about has not earned its
+place; a TDD that resolves eleven things four people were guessing about has.
+
+You own drafting it. You do **not** own three of its sections. That split is the whole design.
+
+## First, read what already exists
+
+In this order, and do not skip to writing:
+
+1. **`docs/prd.md`** — the requirements, each citing its source. This is what the client accepts.
+2. **The SOW and its annexes**, wherever the project keeps them. The annexes carry the acceptance criteria, the
+   exclusions, and the obligations with dates. The criteria tell you what must be *provable*, which constrains
+   design more than any preference does.
+3. **The frozen meeting notes.** Decisions have already been made and re-deciding one silently is the most
+   expensive thing you can do here.
+4. **The code as it is**, if any exists. A design document that contradicts the repository is worse than none.
+
+Then run `node scripts/next.mjs`. It will tell you whether you are drafting or extending.
+
+## The layout, and why it is a directory
+
+`docs/design/tdd/` with numbered files — see `docs/design/tdd/README.md` for the table. A single file is
+allowed for a small project and is usually the wrong choice, because a 900-line document either trips the size
+ceiling or gets approved unread, and both outcomes lose.
+
+One file per concern. `50-authorisation.md` is usually the hardest and most valuable; write it even when the
+answer feels obvious, because "who may do what to whose data" is the question no code can answer and the one
+every later ticket inherits.
+
+## The three sections you must not write
+
+`90-open-questions.md`, `91-risks.md`, `92-deliberately-not-doing.md`.
+
+Leave them with their heading and nothing under it, and hand the document back. `next.mjs` will report
+`interrogate-tdd` until a person fills them, and `CODEOWNERS` names those three paths so a code owner has to
+approve them.
+
+**If those came from you, the review did not happen.** They are the sections whose writing requires actually
+understanding the system, which is why they are the test — an approved-unread TDD is the failure this whole
+step exists to catch, and filling them yourself satisfies the machine while defeating the point.
+
+What you *may* do: put your unanswered questions in your handover message, in your own words, phrased as
+questions. That is help. Writing them into the file as though they were answered is not.
+
+## When you cannot decide a contract without building something
+
+Build it. A design that guesses at whether an approach works is a design that will be rewritten.
+
+**A proof-of-concept never merges.** Put it on a branch nobody will merge, or in a directory `.gitignore`
+already covers, and land its *finding* in the TDD — what you tried, what happened, and the number or the error
+that settled it. Exploratory code that leaks into the repository is how a throwaway becomes the implementation
+nobody chose.
+
+Say in the TDD that a finding came from a proof rather than from reading, and say what you did not test.
+
+## Research, and what to do with it
+
+Look things up. An external system's real response shape, a library's actual failure mode, a rate limit — these
+decide designs and guessing at them is how a design fails in week three.
+
+Then **commit the evidence as a fixture** rather than citing a URL. A committed response shape is readable in
+three months; a link is a bet on somebody else's routing. Strip credentials and personal data before it lands.
+
+## What "done" means here
+
+`node scripts/next.mjs` moves off `interrogate-tdd`, which means the three human sections are answered. That is
+the mechanical bar and it is not the real one.
+
+The real one: **every question the PRD raised is either answered here or listed as open with a name and a
+date.** A question that is neither is a question somebody will answer accidentally, in code, in a fortnight.
+
+## What this skill cannot do for you
+
+It cannot tell you whether the design is *right*. Nothing here checks that the architecture is sound, that the
+schema will hold, or that the flows match what people actually do — a review does that, and the three sections
+a person writes are where that review gets recorded. The checks in this repository verify shape and presence,
+never judgement.
+```

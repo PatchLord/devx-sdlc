@@ -938,3 +938,65 @@ Show the shape. Delete this entry once a real one exists.
 Nothing shipped. It is here so the first person to add an entry has something to copy rather than a
 template to interpret.
 ````
+
+## `docs/design/tdd/README.md` — the TDD's own layout
+
+A TDD is a DIRECTORY, and that is not a tidiness preference. A single design document either trips the size
+ceiling or gets approved unread, and a document approved unread is the failure the whole interrogation step
+exists to catch. Split, each file is reviewable — and the three sections a person must write become PATHS,
+which `CODEOWNERS` can protect. That is the difference between a rule and a mechanism: the check proves those
+sections are not absent, and a protected path puts a person in the approval.
+
+```markdown
+# The technical design document
+
+A TDD lives here — either as `docs/design/tdd.md` when it is small, or as this directory when it is not.
+**Most projects should use the directory**, and the reason is not tidiness: this is the artefact a project
+spends its solutioning time on, and the one where being thorough is the point rather than a cost.
+
+Two things follow from splitting it, and they are the argument for doing so:
+
+**Each file is reviewable on its own.** `size.yml` fails a change above its ceiling, and that ceiling exists so
+a person can actually read a diff. A single 900-line design document either trips the ceiling or gets waved
+through — and a document waved through is the approved-unread TDD this whole process is built to prevent. Ten
+files of ninety lines are ten reviewable changes.
+
+**The sections a person must write can be protected by path.** They are in `90-open-questions.md`,
+`91-risks.md` and `92-deliberately-not-doing.md`, and `CODEOWNERS` names those three files. That turns "the
+agent must not write these" from a rule in prose — which [finding 59](https://github.com/PatchLord/devx-sdlc)
+says does not hold — into a review a code owner has to give.
+
+## The layout
+
+Numbered so the reading order is the file order, and grouped so a reader can stop when they have what they
+came for.
+
+| File | What it holds |
+|---|---|
+| `00-overview.md` | what the system is, in a page. The one file somebody reads before a meeting |
+| `10-architecture.md` | the shape: components, what talks to what, where state lives. Diagrams belong here |
+| `20-data.md` | the schema, the invariants, what is derived rather than stored |
+| `30-flows.md` | the paths a user takes, and what happens at each step when it works and when it does not |
+| `40-external.md` | every system outside this one: its shape, its failure modes, timeouts and retries |
+| `50-authorisation.md` | who may do what to whose data. Usually the single hardest file here |
+| `60-operations.md` | what is monitored, what alarms, what a person does when it fires |
+| `90-open-questions.md` | **a person writes this.** Protected by `CODEOWNERS` |
+| `91-risks.md` | **a person writes this.** Protected by `CODEOWNERS` |
+| `92-deliberately-not-doing.md` | **a person writes this.** Protected by `CODEOWNERS` |
+
+Not every project needs all ten. A project with no external system does not need `40-external.md`, and an empty
+file is worse than an absent one because it reads as an answered question. **The three at the bottom are not
+optional.** `scripts/next.mjs` will not move past `interrogate-tdd` until each has a heading with something
+under it, and a heading with `TBD` under it does not count.
+
+## How it is checked, and what is not checked
+
+`node scripts/next.mjs` reads every `.md` file under this directory as one document. It checks the three
+sections exist and are not empty. **It cannot check that a person wrote them**, and nothing can — an agent
+filling them with plausible text satisfies the machine completely. What the check buys is that they cannot be
+silently *absent*, which is how the failure actually happens: by omission, not by forgery. `CODEOWNERS` is the
+part that puts a person in the path.
+
+Nothing checks that the rest of the TDD is correct, complete, or matches the code. That is what the
+`write-a-tdd` skill is for, and what a review is for.
+```

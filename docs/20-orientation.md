@@ -429,3 +429,23 @@ So the mechanism that keeps a session in its loop runs, in that window, with not
 why the per-ticket ceiling, the wall-clock budget and the refusal to enter `implement` on unresolved criteria
 are the three bounds that have to hold, and why weakening any of them is a gate change rather than a tuning
 decision.
+
+### `scripts/setup-check.mjs` — tier 2, and the reason the rest can be trusted
+
+Reads what the host actually is: the three branches, which one is default, protection on each, auto-delete on
+merge, and whether `CODEOWNERS` names an owner that resolves. `unset` fails. **`unknown` does not**, because an
+unreadable host is not a configured one and calling it configured is the class of lie this file exists to
+prevent.
+
+The derivation consumes only its two cheapest questions — a placeholder owner, and missing branches — since
+`orient` runs at every session start and six `gh` calls would tax it for ever, including the thousands of
+sessions after setup is finished. The full audit is what the `set-up-repo` skill runs.
+
+**What it cannot do:** tell whether a protection rule is the RIGHT one, only that one exists. And it reads
+protection for all three branches where `perimeter.yml` reads one — so the continuous check is narrower than the
+setup-time check, which is stated in the perimeter's own header rather than left as an assumption.
+
+One defect worth keeping, because it is the shape that recurs: the first version reported
+`✓ dev, uat and prod are protected` for a repository that had none of them. The loop skipped missing branches,
+so the empty set made `every()` true. **A vacuous pass is worse than no check** — it answers confidently and
+wrongly, and the reader stops looking.
